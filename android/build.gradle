@@ -1,5 +1,10 @@
 // Top-level build file where you can add configuration options common to all sub-projects/modules.
 
+// Loaded first on purpose: the buildscript block below needs kotlinVersion, and Gradle
+// evaluates buildscript before any later `apply from`, so defining the versions after it
+// leaves the property unknown at that point.
+apply from: "variables.gradle"
+
 buildscript {
 
     repositories {
@@ -14,8 +19,6 @@ buildscript {
         // in the individual module build.gradle files
     }
 }
-
-apply from: "variables.gradle"
 
 allprojects {
     repositories {
