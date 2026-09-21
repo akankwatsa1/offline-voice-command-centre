@@ -4,6 +4,9 @@ import android.Manifest
 import android.content.Context
 import android.provider.ContactsContract
 
+/** A candidate match, ranked so the most specific one wins. */
+private data class Match(val number: String, val name: String, val rank: Int, val length: Int)
+
 /**
  * Turns the name a user actually said into a phone number.
  *
@@ -46,8 +49,6 @@ object Contacts {
         val query = normalise(recipient)
         if (query.isEmpty()) return null
 
-        data class Match(val number: String, val name: String, val rank: Int, val length: Int)
-
         val best = HashMap<String, Match>()
 
         try {
@@ -72,13 +73,16 @@ object Contacts {
                     val normalisedName = normalise(name)
                     if (normalisedName.isEmpty()) continue
 
+                    // -1 means "no match"; a sentinel keeps this a plain expression, since
+                    // `continue` is not allowed as a value inside a when expression.
                     val rank = when {
                         normalisedName == query -> 0
                         normalisedName.startsWith(query) -> 1
                         normalisedName.contains(query) -> 2
                         normalisedName.split(Regex("[^a-z0-9]+")).any { it == query } -> 3
-                        else -> continue
+                        else -> -1
                     }
+                    if (rank < 0) continue
 
                     val candidate = Match(dialable(number), name, rank, normalisedName.length)
                     val existing = best[number]

@@ -76,7 +76,8 @@ class Executor(private val ctx: Context) {
             try {
                 val wifi = ctx.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
                 @Suppress("DEPRECATION")
-                if (wifi.setWifiEnabled(enable)) {
+                val toggled = wifi.setWifiEnabled(enable)
+                if (toggled) {
                     return Outcome("set_wifi", Tier.SILENT, true, "Wi-Fi $what.")
                 }
             } catch (_: Exception) {

@@ -47,7 +47,9 @@ object TimePhrases {
 
         // "in 20 minutes", "in 2 hours"
         RELATIVE.find(text)?.let { m ->
-            val amount = m.groupValues[1].toLongOrNull() ?: return@let
+            // A non-local return from this inline lambda, so a malformed amount abandons
+            // the parse rather than falling through to the clock parsing below.
+            val amount = m.groupValues[1].toLongOrNull() ?: return null
             val unit = m.groupValues[2]
             val millis = when {
                 unit.startsWith("sec") -> amount * 1_000
@@ -90,8 +92,9 @@ object TimePhrases {
             }
         }
 
-        // Time of day
-        var hour: Int
+        // Time of day. Initialised rather than declared-then-assigned so the compiler has
+        // no reason to doubt the definite-assignment analysis across the when below.
+        var hour = 0
         var minute = 0
         var sawClock = false
 

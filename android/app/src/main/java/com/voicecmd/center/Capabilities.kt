@@ -31,11 +31,7 @@ enum class Tier(val wire: String) {
     CONFIRM("confirm"),
 
     /** Not possible on this device. */
-    UNSUPPORTED("unsupported");
-
-    companion object {
-        fun from(wire: String) = entries.firstOrNull { it.wire == wire } ?: UNSUPPORTED
-    }
+    UNSUPPORTED("unsupported")
 }
 
 object Capabilities {
@@ -50,22 +46,23 @@ object Capabilities {
     fun hasRoot(): Boolean {
         if (rootChecked) return rootAvailable
         synchronized(this) {
-            if (rootChecked) return rootAvailable
-            rootAvailable = try {
-                val p = ProcessBuilder("su", "-c", "id").redirectErrorStream(true).start()
-                val exited = p.waitFor(2, TimeUnit.SECONDS)
-                if (!exited) {
-                    p.destroy()
+            if (!rootChecked) {
+                rootAvailable = try {
+                    val p = ProcessBuilder("su", "-c", "id").redirectErrorStream(true).start()
+                    val exited = p.waitFor(2, TimeUnit.SECONDS)
+                    if (!exited) {
+                        p.destroy()
+                        false
+                    } else {
+                        p.inputStream.bufferedReader().readText().contains("uid=0")
+                    }
+                } catch (_: Exception) {
                     false
-                } else {
-                    p.inputStream.bufferedReader().readText().contains("uid=0")
                 }
-            } catch (_: Exception) {
-                false
+                rootChecked = true
             }
-            rootChecked = true
-            return rootAvailable
         }
+        return rootAvailable
     }
 
     /**

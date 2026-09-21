@@ -1,10 +1,5 @@
 // Top-level build file where you can add configuration options common to all sub-projects/modules.
 
-// Loaded first on purpose: the buildscript block below needs kotlinVersion, and Gradle
-// evaluates buildscript before any later `apply from`, so defining the versions after it
-// leaves the property unknown at that point.
-apply from: "variables.gradle"
-
 buildscript {
 
     repositories {
@@ -13,12 +8,19 @@ buildscript {
     }
     dependencies {
         classpath 'com.android.tools.build:gradle:8.7.2'
-        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlinVersion"
+
+        // Pinned literally rather than read from variables.gradle. A buildscript block is
+        // resolved before any `apply from` runs, so a property defined there is not in
+        // scope here — moving the apply earlier does not help. Keep this in step with
+        // kotlinVersion in variables.gradle, which the app module uses for kotlin-stdlib.
+        classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:2.1.0'
 
         // NOTE: Do not place your application dependencies here; they belong
         // in the individual module build.gradle files
     }
 }
+
+apply from: "variables.gradle"
 
 allprojects {
     repositories {
