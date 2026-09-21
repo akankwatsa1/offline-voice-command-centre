@@ -1,0 +1,14 @@
+# Normalise line endings in the repository. Without this, a Windows checkout can hand a
+# CRLF gradlew to the Linux runner and the build dies with "bad interpreter".
+* text=auto eol=lf
+
+# Explicit, in case a future .gitattributes rule or autocrlf setting interferes.
+gradlew text eol=lf
+*.sh text eol=lf
+
+# Binary assets: never touch these.
+*.png binary
+*.jpg binary
+*.jar binary
+*.cact binary
+*.so binary

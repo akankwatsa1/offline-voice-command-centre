@@ -1,0 +1,27 @@
+Leveraging Needle's Confidence | Cactus Cactus ⌘K 4.2k+ stars Talk to us [ NEW ] Needle 3: our 8-29 MB foundation model for tiny devices Back to blog Guides Leveraging Needle's Confidence Every Needle response carries a calibrated confidence score. What it measures, what the engine already does with it, and how to turn it into a product decision: act, confirm, or refuse. KM Karen Mosoyan | September 18, 2026 | 7 min read A tool call is an action. When a 121M model runs a lock, a payment or a message send without a person in the loop, the question is not only whether it is right on average but whether it knows when it is not. Needle answers that with a confidence field on every response, from a head trained for the purpose, and the engine already uses it before you see the call. This guide is what the number means and how to route on it. 
+ What the score is 
+ confidence is the minimum of two signals. A calibrated post-hoc head scores the full prompt together with the call the model just produced; that is a judgement on the finished call, not a guess made before decoding. The second signal is the decoding probability of the call tokens themselves. A call is accepted only when both agree, so the failure mode is escalation rather than wrong execution: a fluent call the head doubts scores low, and a call the head likes but the decoder stumbled through scores low too. 
+ The score is the minimum of a calibrated head over the prompt and the finished call, and the decode probability of the call tokens. The engine withholds anything under 0.1; above that the number is yours to route on. 
+ The head is calibrated on the base model. A tuned archive loaded with weights= does not update it, so the package reports confidence as None for tuned weights and warns once at construction. Non-English deployments should also treat the score with caution; correct Spanish calls have been measured at 0.0. 
+ What the engine does before you see it 
+ The engine applies a floor of 0.1. Below it the call is withheld: function_calls is empty and the call sits in suppressed_calls , so a client that does nothing gets a refusal and a client that wants to confirm can show the withheld call. The same withholding happens when a grounding gate fires regardless of the score: the request negates the called tool's verb, quotes a command reported by someone else, fills a required enum with an option it never names, fills a required slot with a control word or a place the conversation never mentions, names no quantity for a required number with no default, copies the destination into an origin, or targets only what the request excludes. 
+ Two exceptions. Off-topic requests do not need a score: a request no declared tool can serve returns the empty call [] , which is the whole contract for refusal. And a tool with triggers always produces a call for a matching request, past the floor and the guess gates; only the contradiction gates still withhold it. For a triggered tool the score is what tells you whether to run the call or confirm it. 
+ Routing on it 
+ Above the floor the number is yours. The pattern that works is three bands, with the middle one shown to the user: 
+ r = agent.complete(user_text) 
+ calls = r[ "function_calls" ] 
+ held = r[ "suppressed_calls" ] 
+ 
+ if calls and r[ "confidence" ] >= 0.7 : 
+ execute(calls) # sure: act 
+ elif calls or held: 
+ confirm(calls or held, r[ "reasoning" ]) # unsure: show the call, ask 
+ else : 
+ say( "I can't do that here" ) # nothing to do: refuse 
+ The reasoning line is the model's own derivation of each argument from its source span, so showing it beside a middling call ("'ten minutes' -> minutes 10") is usually enough for a person to approve or fix it in one tap. In a hybrid deployment the middle band is also where a request can be routed to a bigger model instead of a person. 
+ Because the score is calibrated, wrong calls sit low and right ones sit high. Raising the threshold removes wrong executions first and costs confirmations second. Pick it per product, and measure it with a held-out suite. 
+ Because the head is calibrated, wrong calls sit low and right calls sit high, and raising the threshold removes wrong executions first and costs confirmations second. Where to put it depends on what a wrong action costs in your product: a light switch tolerates 0.5, a transfer wants 0.9 and a confirmation anyway. Measure it rather than guess: the frozen suites in needle.environments take run_tests(min_confidence=0.4) and score the production contract, acting on a call only at or above the threshold and treating anything below as a refusal. 
+ Grounding on top of the score 
+ The score is about the call as a whole. The package adds one check the head cannot make: a date argument whose year matches none of the years written in the conversation or in the system facts is reported in validation.ungrounded as tool.field , alongside anything the engine itself flags. run() refuses to execute such a call, returns {"error": "ungrounded field"} to the model and continues; pass strict=False to execute anyway. extract() uses the same path for records. 
+ In one line 
+ Act above your threshold, show the call and its reasoning below it, treat [] as a refusal, and let triggers carry the intents that must always reach a tool. The engine has already removed the calls it can prove wrong; the score is for the ones it cannot. Cactus Terms Privacy © 2026 Cactus Compute. All rights reserved.

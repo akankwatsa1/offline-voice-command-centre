@@ -1,0 +1,50 @@
+How to Design Tools for Needle 3 | Cactus Cactus ⌘K 4.2k+ stars Talk to us [ NEW ] Needle 3: our 8-29 MB foundation model for tiny devices Back to blog Guides How to Design Tools for Needle 3 Needle reads a schema literally and copies every argument from the request, so the toolset is the product. The rules we learned shipping Needle 3: one tool per action, names users would say, formats in descriptions, constraints in the grammar, triggers for the phrasings a description cannot list. SK Satyajit Kumar | September 18, 2026 | 10 min read Needle 3 does not chat. It reads the tools you declare, picks the ones a request needs, and fills every argument from what the user said. That makes the toolset the whole product: the same 121M model moved by close to twenty points on a mobile benchmark once every argument was grounded in the request instead of predicted freely, and the schema is the half of that contract you write. This guide is what we learned shipping it, as rules you can apply to your own tools. The Python details are in the Needle Python docs . 
+ Every argument is a span 
+ The contract behind everything else: a call contains only values evidenced by the request. The model derives each argument from a span of the text, writes that derivation as its reasoning line, and then emits the call under a grammar compiled from your schema. An optional field with no span is omitted. A required field with no span and no default is not guessed; the call is withheld into suppressed_calls and function_calls comes back empty. 
+ Grounding. Each argument is copied from a span of the request, and the model writes that derivation as its reasoning line before the call. A field with no span stays empty; a required one with no span withholds the call. 
+ Design for this. If a value is not going to be in the request, do not make it a required argument. If your function needs it anyway, give it a schema default , and the engine fills the default when the request names nothing. Numbers are the strictest case: only a whole number or a number word counts as evidence, so 72 does not evidence a 2 , and "a bit warmer" does not evidence any number at all. 
+ One tool per action 
+ A narrow tool with a plain description beats a broad one. The model is best at picking a name; it is worst at inventing free-text values that stand in for a decision. set_thermostat(temperature) , set_lights(room, on, brightness) and lock_door(door) route "make the kitchen warmer" cleanly. control_home(device, action, value) pushes the same decision into three arguments the model has to make up. 
+ Scope. A broad tool pushes the decision into free-text arguments the model has to invent. Narrow tools turn the same decision into picking a name, which is what the model is best at, and every argument left is a span of the request. 
+ Describe a tool by the actions it covers, not by its category: "Turn a room's lights on or off, or dim them" rather than "Lighting control". Keep the description free of instructions to the model; it is read as a fact about the tool, and instructions in it do not steer decoding. 
+ Names users would say 
+ Enum options are matched against the request, so name them after the words people use. action: ["increase", "decrease"] is matched by "turn up", "louder", "raise", "more", and their opposites, because the engine knows those families; action: ["inc", "dec"] is not. Keep the synonyms in the description anyway, and never hide an enum value inside a common query word: a room called office poisons every request containing "off", which is why our smart-home environment has a study instead. 
+ Polar pairs follow the request verb. If you ship lock_door and unlock_door , "unlock the back door" reaches unlock_door even when the model first picked the other one, and a boolean on flips to match "turn off". Ship both halves of a pair as separate tools or as one enum; do not make the model infer polarity from a description. 
+ Formats in the description 
+ The model copies what it sees, so tell it what shape to copy. A per-argument description is read literally: 
+ from typing import Annotated, Literal 
+ import needle 
+ 
+ @needle.tool 
+ def book_ride ( 
+ pickup: Annotated[ str , needle.Field( description = "the place after 'from'" )], 
+ dropoff: Annotated[ str , needle.Field( description = "the place after 'to'" )], 
+ seats: Annotated[ int , needle.Field( ge = 1 , le = 6 , description = "number of riders" )] = 1 , 
+ ): 
+ "Book a ride between two named places." 
+ "City, ST" , "e.g. T-1042" , "ISO date" , "the place after 'from'" all work. Route spans are read from "from X to Y", "picking up at" and "drop off at" wording; quoted titles and message bodies are restored verbatim from the request; a truncated phone number is completed; file extensions become MIME types and celsius becomes fahrenheit when the parameter says so. None of that needs prompting, but it all needs the parameter to say what it wants. 
+ Constraints in the grammar 
+ Ranges, enums, patterns, lengths and item counts are compiled into the decode grammar, so an invalid value is unrepresentable rather than merely discouraged. Put the bounds in the schema, not in prose: 
+ @needle.tool 
+ def log_expense ( 
+ amount: Annotated[ float , needle.Field( gt = 0 , le = 100000 )], 
+ category: Literal[ "food" , "transport" , "rent" , "utilities" , "health" , "other" ], 
+ merchant: Annotated[ str , needle.Field( min_length = 1 , max_length = 60 )], 
+ ): 
+ "Record a purchase." 
+ A bounded number cannot grow past its maximum, a numeric literal stops at twenty characters, an array stops after sixty-four items, and a required enumerated argument the request neither names nor implies withholds the call instead of guessing. The extraction guide shows the same mechanism used for records. 
+ Triggers for what a description cannot list 
+ When a tool must catch phrasings no description enumerates, give it triggers : case-insensitive regular expressions matched against each request. A match restricts the decode to the tools that matched and requires a call, so the request reaches the tool you named instead of being refused or misrouted, and the call ships even below the confidence floor. 
+ Triggers. A matching regex narrows the grammar to the tools that declared it and removes the empty call, so a phrasing the description could not anticipate still reaches the right tool. The match restricts the whole turn, which is why a catch-all should exclude the nouns other tools own. 
+ The match restricts the whole turn, so a catch-all should exclude the nouns other tools own. With set_lights and lock_door in the same set, a device toggle trigger should be ^(?![\s\S]*\b(lights?|doors?)\b)[\s\S]*\b(turn|switch)\b[\s\S]*\b(on|off)\b ; then "switch the fan on and dim the kitchen lights" still reaches both tools. Raw JSON schemas take the same "triggers" list beside description . Because a triggered call bypasses the guess gates but not the contradiction gates, a negated or reported request ("don't toggle it", "she said toggle it") is still withheld. For the same reason a trigger meant for one action should stand down on a request that asks for several: a leading (?![\s\S]*\b(and|then)\b) leaves "open Notes and copy the link" to the model, which can emit both calls. 
+ Keep the toolset small 
+ Five or fewer tools render directly. Above that, retrieval engages: every schema is embedded once, each request is embedded, and only the five closest tools enter the context with the grammar rebuilt over them. An unselected tool is unreachable, not merely unlikely. For a large catalogue, prefer two turns, one against the catalogue to pick the tool and one declaring only that tool, over one turn against everything. Every extra tool in a turn is a chance to misroute. 
+ Facts, not instructions 
+ Environment state goes in the system turn as facts: date: 2026-07-21 Tue 14:30; locale: en-US; device: phone; battery: 62% . The model resolves "tomorrow at 7" against the date fact and passes the phrase through verbatim without one. Instructions placed there do not steer the model, and Needle trains with and without the turn, so omitting it is safe. The Python package prefixes the local date automatically. 
+ Test the environment, not a demo prompt 
+ Every environment in needle.environments ships a frozen suite of 32 cases in six categories, and yours should too: the exact call for a positive request; [] when a required value is missing, when no tool covers the request, when the request is negated, and when a stated value is out of bounds; two calls from one request, order-insensitive. Run it against the shipped engine, then again with the confidence threshold your product will use: 
+ from needle.environments import smart_home 
+ 
+ smart_home.run_tests() 
+ smart_home.run_tests( min_confidence = 0.4 ) 
+ Adapt one by swapping the Literal values for your own and keeping the shapes: closed sets as enums, bounded numbers, verbatim copy for free text, five tools or fewer. When a suite passes on the base model and your product needs more, the next lever is fine-tuning rather than a longer description. Cactus Terms Privacy © 2026 Cactus Compute. All rights reserved.
