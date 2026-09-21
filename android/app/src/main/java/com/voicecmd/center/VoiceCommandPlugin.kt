@@ -294,8 +294,13 @@ class VoiceCommandPlugin : Plugin() {
 
     // ------------------------------------------------------------ permissions
 
+    /**
+     * Named getPermissionStates rather than checkPermissions: Capacitor's Plugin base
+     * class already declares checkPermissions, so a method of that name would have to
+     * override it instead.
+     */
     @PluginMethod
-    fun checkPermissions(call: PluginCall) {
+    fun getPermissionStates(call: PluginCall) {
         val result = JSObject()
         putPermissionStates(result)
         call.resolve(result)
@@ -304,7 +309,9 @@ class VoiceCommandPlugin : Plugin() {
     @PluginMethod
     fun requestPermission(call: PluginCall) {
         val alias = call.getString("alias")
-        if (alias !in listOf("microphone", "contacts", "notifications")) {
+        // The null check is first so that `alias` smart-casts to String below; a bare
+        // `!in` test leaves it nullable as far as the compiler is concerned.
+        if (alias == null || alias !in listOf("microphone", "contacts", "notifications")) {
             call.reject("Unknown permission \"$alias\".")
             return
         }
