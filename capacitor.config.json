@@ -1,0 +1,11 @@
+{
+  "appId": "com.voicecmd.center",
+  "appName": "Voice Command",
+  "webDir": "www",
+  "server": {
+    "androidScheme": "https"
+  },
+  "android": {
+    "allowMixedContent": false
+  }
+}

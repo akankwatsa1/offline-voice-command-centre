@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <application
+        android:allowBackup="true"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:networkSecurityConfig="@xml/network_security_config"
+        android:theme="@style/AppTheme">
+
+        <activity
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode|navigation"
+            android:name=".MainActivity"
+            android:label="@string/title_activity_main"
+            android:theme="@style/AppTheme.NoActionBarLaunch"
+            android:launchMode="singleTask"
+            android:exported="true">
+
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+        </activity>
+
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths"></meta-data>
+        </provider>
+
+        <!-- Fires the notification when a reminder is due. -->
+        <receiver
+            android:name=".ReminderReceiver"
+            android:exported="false" />
+
+        <!-- Re-arms reminders that are still in the future after a restart. -->
+        <receiver
+            android:name=".BootReceiver"
+            android:exported="true"
+            android:directBootAware="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
+    </application>
+
+    <!--
+      Package visibility. Without these, SpeechRecognizer cannot see the on-device
+      recognition service and ACTION_SENDTO cannot be resolved on API 30+.
+    -->
+    <queries>
+        <intent>
+            <action android:name="android.speech.RecognitionService" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.SENDTO" />
+            <data android:scheme="smsto" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.SET_ALARM" />
+        </intent>
+    </queries>
+
+    <!-- Permissions -->
+
+    <!-- Loopback access to the local Needle engine process. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Speech input. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <!-- Turning a spoken contact name into a phone number for send_sms. -->
+    <uses-permission android:name="android.permission.READ_CONTACTS" />
+    <!-- Android 13+ runtime permission for the reminder notification. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Exact reminders on Android 12+. Checked at runtime with
+         AlarmManager.canScheduleExactAlarms(); the app falls back when it is denied. -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <!-- Re-schedule reminders after the device restarts. -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+    <!-- Reading the current Wi-Fi state for spoken feedback, and the legacy silent
+         toggle on API < 29 only. -->
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
+    <!-- The `network:` session fact handed to the model. -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+    <!-- The torch is a nice-to-have: do not hide the app from devices without a flash. -->
+    <uses-feature
+        android:name="android.hardware.camera.flash"
+        android:required="false" />
+    <uses-feature
+        android:name="android.hardware.microphone"
+        android:required="false" />
+</manifest>

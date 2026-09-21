@@ -1,0 +1,56 @@
+{
+  "$comment": "Frozen tool-routing suite for Voice Command Center, modelled on the six categories in the Needle 3 tool-design guide. Runs against the real engine in CI (tools/run-cases.mjs). expect.calls is order-insensitive.",
+  "categories": {
+    "positive": "the exact call for a positive request",
+    "missing_required": "[] when a required value is missing",
+    "off_topic": "[] when no tool covers the request",
+    "negated": "[] when the request is negated",
+    "out_of_bounds": "[] when a stated value is outside the grammar's allowed set",
+    "multi": "two calls from one request, order-insensitive"
+  },
+  "cases": [
+    { "id": "wifi-off", "cat": "positive", "input": "turn off the wifi", "expect": { "calls": [["set_wifi", { "action": "off" }]] } },
+    { "id": "wifi-on", "cat": "positive", "input": "switch the Wi-Fi back on", "expect": { "calls": [["set_wifi", { "action": "on" }]] } },
+    { "id": "wifi-enable-synonym", "cat": "positive", "input": "enable wireless", "expect": { "calls": [["set_wifi", { "action": "on" }]] } },
+    { "id": "wifi-disable-synonym", "cat": "positive", "input": "disable the wlan", "expect": { "calls": [["set_wifi", { "action": "off" }]] } },
+    { "id": "wifi-turn-up-family", "cat": "positive", "input": "I need wifi on", "expect": { "calls": [["set_wifi", { "action": "on" }]] } },
+
+    { "id": "hotspot-on", "cat": "positive", "input": "turn on the hotspot", "expect": { "calls": [["set_hotspot", { "action": "on" }]] } },
+    { "id": "hotspot-tethering", "cat": "positive", "input": "start tethering", "expect": { "calls": [["set_hotspot", { "action": "on" }]] } },
+    { "id": "hotspot-off", "cat": "positive", "input": "turn the hotspot off", "expect": { "calls": [["set_hotspot", { "action": "off" }]] } },
+
+    { "id": "torch-on", "cat": "positive", "input": "turn on the flashlight", "expect": { "calls": [["set_torch", { "action": "on" }]] } },
+    { "id": "torch-synonym", "cat": "positive", "input": "switch my torch on", "expect": { "calls": [["set_torch", { "action": "on" }]] } },
+    { "id": "torch-off", "cat": "positive", "input": "put the light off", "expect": { "calls": [["set_torch", { "action": "off" }]] } },
+
+    { "id": "sms-hod", "cat": "positive", "input": "Draft an SMS to Head of Department saying I will arrive at 8:30", "expect": { "calls": [["send_sms", { "recipient": "Head of Department", "message": "I will arrive at 8:30" }]] } },
+    { "id": "sms-number", "cat": "positive", "input": "text 0771234567 that I am on my way", "expect": { "calls": [["send_sms", { "recipient": "0771234567", "message": "I am on my way" }]] } },
+    { "id": "sms-mum", "cat": "positive", "input": "send mum a message saying I got home safely", "expect": { "calls": [["send_sms", { "recipient": "mum", "message": "I got home safely" }]] } },
+
+    { "id": "reminder-past-papers", "cat": "positive", "input": "Remind me at 5:00 PM to review S.4 past papers", "expect": { "calls": [["set_reminder", { "when": "at 5:00 PM", "text": "review S.4 past papers" }]] } },
+    { "id": "reminder-tomorrow", "cat": "positive", "input": "set a reminder for tomorrow at 8:30 to call the bank", "expect": { "calls": [["set_reminder", { "when": "tomorrow at 8:30", "text": "call the bank" }]] } },
+    { "id": "reminder-alarm-word", "cat": "positive", "input": "wake me up at 6 am to study", "expect": { "calls": [["set_reminder", { "when": "at 6 am", "text": "study" }]] } },
+
+    { "id": "missing-sms-recipient", "cat": "missing_required", "input": "send a text saying I am running late", "expect": { "calls": [] } },
+    { "id": "missing-sms-body", "cat": "missing_required", "input": "text the head of department", "expect": { "calls": [] } },
+    { "id": "missing-reminder-time", "cat": "missing_required", "input": "remind me to review S.4 past papers", "expect": { "calls": [] } },
+    { "id": "missing-reminder-text", "cat": "missing_required", "input": "set a reminder for 5 pm", "expect": { "calls": [] } },
+
+    { "id": "off-topic-weather", "cat": "off_topic", "input": "what is the weather in Kampala", "expect": { "calls": [] } },
+    { "id": "off-topic-joke", "cat": "off_topic", "input": "tell me a joke", "expect": { "calls": [] } },
+    { "id": "off-topic-maths", "cat": "off_topic", "input": "what is 17 times 4", "expect": { "calls": [] } },
+    { "id": "off-topic-chat", "cat": "off_topic", "input": "how are you doing today", "expect": { "calls": [] } },
+    { "id": "off-topic-unrelated-device", "cat": "off_topic", "input": "open the garage door", "expect": { "calls": [] } },
+
+    { "id": "negated-wifi", "cat": "negated", "input": "do not turn off the wifi", "expect": { "calls": [] } },
+    { "id": "negated-torch", "cat": "negated", "input": "don't switch the flashlight on", "expect": { "calls": [] } },
+    { "id": "reported-not-request", "cat": "negated", "input": "she said turn off the wifi", "expect": { "calls": [] } },
+
+    { "id": "oob-volume", "cat": "out_of_bounds", "input": "set the wifi to 72 percent", "expect": { "calls": [] } },
+    { "id": "oob-brightness", "cat": "out_of_bounds", "input": "set the hotspot to bright", "expect": { "calls": [] } },
+
+    { "id": "multi-wifi-off-hotspot-on", "cat": "multi", "input": "Turn off Wi-Fi and switch to hotspot", "expect": { "calls": [["set_wifi", { "action": "off" }], ["set_hotspot", { "action": "on" }]] } },
+    { "id": "multi-torch-off-and-sms", "cat": "multi", "input": "turn the flashlight off and text dad that I will be late", "expect": { "calls": [["set_torch", { "action": "off" }], ["send_sms", { "recipient": "dad", "message": "I will be late" }]] } },
+    { "id": "multi-wifi-on-and-reminder", "cat": "multi", "input": "turn wifi on and remind me at 7 pm to mark the scripts", "expect": { "calls": [["set_wifi", { "action": "on" }], ["set_reminder", { "when": "at 7 pm", "text": "mark the scripts" }]] } }
+  ]
+}

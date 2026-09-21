@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Voice Command</string>
+    <string name="title_activity_main">Voice Command</string>
+    <string name="package_name">com.voicecmd.center</string>
+    <string name="custom_url_scheme">com.voicecmd.center</string>
+</resources>

@@ -1,0 +1,19 @@
+# Dependencies
+node_modules/
+
+# Needle 3 engine + weights: fetched, never committed (33.7 MB of weights).
+models/
+
+# Staged into the Android project at build time, not sources.
+android/app/src/main/assets/needle3.cact
+android/app/src/main/assets/tools.json
+android/app/src/main/jniLibs/
+
+# Android build output
+android/build/
+android/app/build/
+android/.gradle/
+android/local.properties
+android/capacitor-cordova-android-plugins/build/
+*.apk
+*.aab

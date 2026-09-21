@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The Needle engine runs as a child process of this app and is reached over loopback
+  HTTP. Android blocks cleartext by default from API 28 onward, so this allows it for
+  127.0.0.1 only. Every other destination keeps Android's secure default.
+-->
+<network-security-config>
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">127.0.0.1</domain>
+        <domain includeSubdomains="false">localhost</domain>
+    </domain-config>
+</network-security-config>

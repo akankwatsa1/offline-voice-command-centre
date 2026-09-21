@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- styles.xml references these. The Capacitor template assumes they come from
+         somewhere else; defining them here keeps AAPT2 resource linking unambiguous. -->
+    <color name="colorPrimary">#4F46E5</color>
+    <color name="colorPrimaryDark">#3730A3</color>
+    <color name="colorAccent">#06B6D4</color>
+</resources>

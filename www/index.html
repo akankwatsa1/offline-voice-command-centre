@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="color-scheme" content="dark light" />
+<title>Voice Command Center</title>
+<link rel="stylesheet" href="css/app.css" />
+</head>
+<body>
+
+<header class="topbar">
+  <h1>Voice Command Center</h1>
+  <p class="status" id="status" role="status" aria-live="polite">Starting…</p>
+</header>
+
+<main>
+
+  <!-- Speak or type a command ------------------------------------------------ -->
+  <section class="card" aria-labelledby="h-command">
+    <h2 id="h-command" class="sr-only">Give a command</h2>
+
+    <button id="mic" class="mic" aria-describedby="mic-hint">
+      <span class="mic-icon" aria-hidden="true">🎙</span>
+      <span class="mic-label" id="mic-label">Tap to speak</span>
+    </button>
+    <p id="mic-hint" class="hint">Say something like “turn off the wifi”, “text dad that I’m late”, or “remind me at 5 PM to review S.4 past papers”.</p>
+
+    <div class="transcript-wrap">
+      <label class="sr-only" for="transcript">Transcript</label>
+      <output id="transcript" class="transcript" aria-live="polite">—</output>
+    </div>
+
+    <form id="typed-form" class="typed">
+      <label class="sr-only" for="typed">Type a command instead</label>
+      <input id="typed" type="text" autocomplete="off" placeholder="Or type a command…" />
+      <button type="submit" class="btn">Run</button>
+    </form>
+
+    <div class="examples" role="group" aria-label="Example commands">
+      <button class="chip" data-say="Turn off Wi-Fi and switch to hotspot">Turn off Wi-Fi and switch to hotspot</button>
+      <button class="chip" data-say="Draft an SMS to Head of Department saying I will arrive at 8:30">Draft an SMS to Head of Department saying I will arrive at 8:30</button>
+      <button class="chip" data-say="Remind me at 5:00 PM to review S.4 past papers">Remind me at 5:00 PM to review S.4 past papers</button>
+      <button class="chip" data-say="turn on the flashlight">Turn on the flashlight</button>
+    </div>
+  </section>
+
+  <!-- What happened ---------------------------------------------------------- -->
+  <section class="card" id="result-card" aria-labelledby="h-result">
+    <h2 id="h-result">Result</h2>
+    <div id="result" class="result" role="status" aria-live="polite">
+      <p class="muted">Nothing yet.</p>
+    </div>
+
+    <div id="confirm-bar" class="confirm-bar" hidden>
+      <p id="confirm-text" class="confirm-text"></p>
+      <div class="confirm-actions">
+        <button id="confirm-run" class="btn primary">Do it</button>
+        <button id="confirm-cancel" class="btn">Never mind</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Permissions + capabilities -------------------------------------------- -->
+  <section class="card" aria-labelledby="h-setup">
+    <h2 id="h-setup">Setup</h2>
+
+    <div class="perm-grid" id="perms">
+      <div class="perm"><span>Microphone</span><button class="btn small" data-perm="microphone">Grant</button><em id="perm-microphone">…</em></div>
+      <div class="perm"><span>Contacts</span><button class="btn small" data-perm="contacts">Grant</button><em id="perm-contacts">…</em></div>
+      <div class="perm"><span>Notifications</span><button class="btn small" data-perm="notifications">Grant</button><em id="perm-notifications">…</em></div>
+    </div>
+
+    <p class="hint" id="cap-summary">Checking what this phone allows…</p>
+    <dl class="caps" id="caps"></dl>
+    <div class="row">
+      <button class="btn small" id="open-exact">Allow exact alarms</button>
+      <button class="btn small" id="open-settings">App settings</button>
+    </div>
+    <p class="hint" id="offline-note"></p>
+  </section>
+
+  <!-- Reminders ------------------------------------------------------------- -->
+  <section class="card" aria-labelledby="h-reminders">
+    <h2 id="h-reminders">Reminders</h2>
+    <ul id="reminders" class="reminders"><li class="muted">None set.</li></ul>
+  </section>
+
+  <!-- Log ------------------------------------------------------------------- -->
+  <section class="card" aria-labelledby="h-log">
+    <h2 id="h-log"><button class="disclosure" id="log-toggle" aria-expanded="false">Engine log</button></h2>
+    <pre id="log" class="log" hidden></pre>
+  </section>
+
+</main>
+
+<script src="js/app.js"></script>
+</body>
+</html>

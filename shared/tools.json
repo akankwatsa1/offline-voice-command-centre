@@ -1,0 +1,83 @@
+[
+  {
+    "name": "set_wifi",
+    "description": "Turn the phone's Wi-Fi radio on or off.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "action": {
+          "type": "string",
+          "enum": ["on", "off"],
+          "description": "on to enable Wi-Fi, off to disable Wi-Fi"
+        }
+      },
+      "required": ["action"]
+    }
+  },
+  {
+    "name": "set_hotspot",
+    "description": "Turn the phone's mobile hotspot, also called tethering, on or off so other devices can share this phone's internet connection.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "action": {
+          "type": "string",
+          "enum": ["on", "off"],
+          "description": "on to enable the hotspot, off to disable the hotspot"
+        }
+      },
+      "required": ["action"]
+    }
+  },
+  {
+    "name": "set_torch",
+    "description": "Turn the phone's flashlight, also called the torch or the light, on or off.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "action": {
+          "type": "string",
+          "enum": ["on", "off"],
+          "description": "on to switch the flashlight on, off to switch the flashlight off"
+        }
+      },
+      "required": ["action"]
+    }
+  },
+  {
+    "name": "send_sms",
+    "description": "Open a text message to a person or a phone number with the message body already filled in, ready for the user to send.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "recipient": {
+          "type": "string",
+          "description": "the person's name or the phone number the message is for"
+        },
+        "message": {
+          "type": "string",
+          "description": "the message body, copied word for word from the request"
+        }
+      },
+      "required": ["recipient", "message"]
+    }
+  },
+  {
+    "name": "set_reminder",
+    "description": "Set a reminder that alerts the user at a time the user names.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "when": {
+          "type": "string",
+          "description": "the time phrase exactly as the user said it, for example 'at 5 PM' or 'tomorrow at 8:30'"
+        },
+        "text": {
+          "type": "string",
+          "description": "what the reminder is about, copied word for word from the request"
+        }
+      },
+      "required": ["when", "text"]
+    }
+  }
+]

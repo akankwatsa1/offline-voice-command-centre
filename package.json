@@ -1,0 +1,21 @@
+{
+  "name": "voice-command-center",
+  "productName": "Voice Command",
+  "version": "1.0.0",
+  "description": "Offline voice command center for Android: Needle 3 tool calling plus a capability-tiered intent executor.",
+  "private": true,
+  "license": "MIT",
+  "scripts": {
+    "fetch:models": "node scripts/fetch-models.mjs --platform android-arm64,linux-x86_64",
+    "test:cases": "node tools/run-cases.mjs",
+    "test:cases:win": "node tools/run-cases.mjs --engine models/windows-x86_64/needle.exe",
+    "cap:sync": "cap sync android"
+  },
+  "dependencies": {
+    "@capacitor/android": "^7.6.8",
+    "@capacitor/core": "^7.6.8"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^7.6.8"
+  }
+}
