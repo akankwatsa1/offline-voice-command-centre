@@ -1,6 +1,10 @@
 # Dependencies
 node_modules/
 
+# npm's default cache lives outside this folder, which some sandboxes block, so the
+# project points npm at its own cache directory instead. Never commit it.
+.npm-cache/
+
 # Needle 3 engine + weights: fetched, never committed (33.7 MB of weights).
 models/
 
