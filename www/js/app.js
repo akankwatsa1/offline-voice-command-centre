@@ -299,6 +299,9 @@
         const btn = document.createElement("button");
         btn.className = "btn small";
         btn.textContent = "Cancel";
+        // A list of buttons all reading "Cancel" tells a screen reader user nothing about
+        // which reminder they are about to remove, so each one names its own reminder.
+        btn.setAttribute("aria-label", `Cancel the reminder: ${r.text}`);
         btn.addEventListener("click", async () => {
           await VC.cancelReminder({ id: r.id });
           refreshReminders();

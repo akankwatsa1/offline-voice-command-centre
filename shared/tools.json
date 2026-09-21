@@ -1,7 +1,7 @@
 [
   {
     "name": "set_wifi",
-    "description": "Turn the phone's Wi-Fi radio on or off.",
+    "description": "Turn the phone's Wi-Fi radio on or off. Wi-Fi is also called wireless or WLAN.",
     "parameters": {
       "type": "object",
       "properties": {
@@ -16,7 +16,7 @@
   },
   {
     "name": "set_hotspot",
-    "description": "Turn the phone's mobile hotspot, also called tethering, on or off so other devices can share this phone's internet connection.",
+    "description": "Turn the phone's mobile hotspot on or off, so other devices can share this phone's internet. The hotspot is also called tethering or a personal hotspot, and switching to the hotspot means turning it on.",
     "parameters": {
       "type": "object",
       "properties": {
@@ -27,11 +27,12 @@
         }
       },
       "required": ["action"]
-    }
+    },
+    "triggers": ["\\btether\\w*\\b", "\\bpersonal hotspot\\b"]
   },
   {
     "name": "set_torch",
-    "description": "Turn the phone's flashlight, also called the torch or the light, on or off.",
+    "description": "Turn the phone's flashlight on or off. The flashlight is also called the torch, the light or the lamp.",
     "parameters": {
       "type": "object",
       "properties": {
@@ -46,17 +47,19 @@
   },
   {
     "name": "send_sms",
-    "description": "Open a text message to a person or a phone number with the message body already filled in, ready for the user to send.",
+    "description": "Open a text message to a person the user named, with the message body already written, ready for the user to send.",
     "parameters": {
       "type": "object",
       "properties": {
         "recipient": {
           "type": "string",
-          "description": "the person's name or the phone number the message is for"
+          "description": "the name of the person or the phone number the user named as the recipient of the message",
+          "minLength": 1
         },
         "message": {
           "type": "string",
-          "description": "the message body, copied word for word from the request"
+          "description": "the words the user dictated for the message body, copied word for word from the request",
+          "minLength": 1
         }
       },
       "required": ["recipient", "message"]
@@ -64,20 +67,23 @@
   },
   {
     "name": "set_reminder",
-    "description": "Set a reminder that alerts the user at a time the user names.",
+    "description": "Set a reminder or an alarm that goes off at a time the user names, including waking the user up at a time.",
     "parameters": {
       "type": "object",
       "properties": {
         "when": {
           "type": "string",
-          "description": "the time phrase exactly as the user said it, for example 'at 5 PM' or 'tomorrow at 8:30'"
+          "description": "the time phrase exactly as the user said it, for example 'at 5 PM' or 'tomorrow at 8:30'",
+          "minLength": 1
         },
         "text": {
           "type": "string",
-          "description": "what the reminder is about, copied word for word from the request"
+          "description": "what the reminder is about, copied word for word from the request",
+          "minLength": 1
         }
       },
       "required": ["when", "text"]
-    }
+    },
+    "triggers": ["\\bwake me\\b"]
   }
 ]

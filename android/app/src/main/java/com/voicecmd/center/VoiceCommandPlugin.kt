@@ -146,9 +146,14 @@ class VoiceCommandPlugin : Plugin() {
         result.put("confidence", reply.confidence ?: JSONObject.NULL)
         result.put("reasoning", reply.reasoning ?: JSONObject.NULL)
 
+        // A negative, reported or hypothetical phrasing never acts on the model's score
+        // alone. See Guard for why this gate exists at all.
+        val guard = Guard.reasonToConfirm(input)
+        result.put("guard", guard ?: JSONObject.NULL)
+
         val confident = reply.calls.isNotEmpty() && (reply.confidence ?: 0.0) >= threshold
         val decision = when {
-            confident -> "act"
+            confident && guard == null -> "act"
             reply.calls.isNotEmpty() || reply.held.isNotEmpty() -> "confirm"
             else -> "refuse"
         }
@@ -165,7 +170,7 @@ class VoiceCommandPlugin : Plugin() {
             "confirm" -> {
                 val pending = if (reply.calls.isNotEmpty()) reply.calls else reply.held
                 result.put("calls", callsToJs(pending))
-                val spoken = describeCalls(pending)
+                val spoken = guard ?: describeCalls(pending)
                 result.put("spoken", spoken)
                 if (autoSpeak) ui { speaker.say(spoken) }
             }

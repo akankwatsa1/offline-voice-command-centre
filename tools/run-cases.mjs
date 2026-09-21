@@ -123,26 +123,32 @@ function writeSystemFile() {
 }
 
 async function startServer() {
+  // Deliberately no piped stdio: some sandboxes deny pipe creation outright, and the
+  // engine's log is not needed here because every result arrives over loopback HTTP.
+  // Ignoring stdout/stderr also means a long-running engine can never block on a full
+  // pipe buffer, which a piped version would have to drain.
   const child = spawn(engine, [...COMMON, "--system", systemFile, "--serve", "--port", String(PORT)], {
-    stdio: ["ignore", "pipe", "pipe"],
+    stdio: ["ignore", "ignore", "ignore"],
   });
-  let log = "";
-  child.stdout.on("data", (d) => (log += d));
-  child.stderr.on("data", (d) => (log += d));
 
   const deadline = Date.now() + 120000;
   while (Date.now() < deadline) {
-    if (child.exitCode !== null) throw new Error(`engine exited early (${child.exitCode}): ${log.slice(-500)}`);
+    if (child.exitCode !== null) {
+      throw new Error(`engine exited during start-up with code ${child.exitCode}`);
+    }
     try {
-      const r = await fetch(`http://127.0.0.1:${PORT}/reset`, { method: "POST", signal: AbortSignal.timeout(2000) });
-      if (r.ok || r.status === 404) return { child, log: () => log };
+      const r = await fetch(`http://127.0.0.1:${PORT}/reset`, {
+        method: "POST",
+        signal: AbortSignal.timeout(2000),
+      });
+      if (r.ok || r.status === 404) return { child };
     } catch {
       /* not up yet */
     }
     await new Promise((r) => setTimeout(r, 500));
   }
   child.kill();
-  throw new Error(`engine did not start serving on ${PORT}: ${log.slice(-500)}`);
+  throw new Error(`engine did not start serving on port ${PORT} within two minutes`);
 }
 
 async function serveComplete(input) {
@@ -158,7 +164,16 @@ async function serveComplete(input) {
 function normaliseArgs(a) {
   const out = {};
   for (const [k, v] of Object.entries(a ?? {})) {
-    out[k] = typeof v === "string" ? v.trim().toLowerCase() : v;
+    if (typeof v !== "string") {
+      out[k] = v;
+      continue;
+    }
+    let s = v.trim().toLowerCase();
+    // The model sometimes copies the preposition with the time span ("at 5:00 PM") and
+    // sometimes not ("5:00 pm"). Both are correct spans and TimePhrases.parse accepts
+    // either, so compare the time itself rather than the exact wording.
+    if (k === "when") s = s.replace(/^(at|for|by|around|about)\s+/, "");
+    out[k] = s;
   }
   return out;
 }

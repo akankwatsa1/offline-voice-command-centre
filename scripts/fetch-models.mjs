@@ -62,6 +62,8 @@ async function download(url, dest, { minBytes = 1, chunked = false } = {}) {
     return dest;
   }
   const part = dest + ".part";
+  // Per-platform files land in models/<platform>/, which may not exist yet.
+  mkdirSync(dirname(dest), { recursive: true });
   let total = 0;
   try {
     const head = await fetch(url, { headers: { "user-agent": "voice-command-center" }, redirect: "follow" });
