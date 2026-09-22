@@ -147,7 +147,7 @@ class VoiceCommandPlugin : Plugin() {
     fun prepare(call: PluginCall) {
         val problem = brain.start()
         if (problem != null) {
-            call.reject(problem)
+            fail(call, problem)
             return
         }
         call.resolve(JSObject().put("running", true).put("port", brain.port))
@@ -163,7 +163,7 @@ class VoiceCommandPlugin : Plugin() {
             return
         }
         engineProblem()?.let {
-            call.reject(it)
+            fail(call, it)
             return
         }
         call.resolve(JSObject().put("reply", brain.ask(input).raw))
@@ -185,7 +185,7 @@ class VoiceCommandPlugin : Plugin() {
         val autoSpeak = call.data.optBoolean("speak", true)
 
         engineProblem()?.let {
-            call.reject(it)
+            fail(call, it)
             return
         }
 
@@ -264,7 +264,7 @@ class VoiceCommandPlugin : Plugin() {
     fun executeCalls(call: PluginCall) {
         val raw = call.getString("callsJson")
         if (raw.isNullOrEmpty()) {
-            call.reject("No calls to run.")
+            fail(call, "No calls to run.")
             return
         }
         val calls = try {
@@ -276,11 +276,11 @@ class VoiceCommandPlugin : Plugin() {
                 else ToolCall(name, item.optJSONObject("arguments") ?: JSONObject())
             }
         } catch (e: Exception) {
-            call.reject("Could not read those calls: ${e.message}")
+            fail(call, "Could not read those calls: ${e.message}")
             return
         }
         if (calls.isEmpty()) {
-            call.reject("No calls to run.")
+            fail(call, "No calls to run.")
             return
         }
 
@@ -307,7 +307,7 @@ class VoiceCommandPlugin : Plugin() {
     @PermissionCallback
     private fun microphoneCallback(call: PluginCall) {
         if (getPermissionState("microphone") != PermissionState.GRANTED) {
-            call.reject("Microphone permission is needed to hear a command.")
+            fail(call, "Microphone permission is needed to hear a command.")
             return
         }
         beginListening(call)
@@ -330,7 +330,7 @@ class VoiceCommandPlugin : Plugin() {
             if (listener.start()) {
                 call.resolve(JSObject().put("listening", true).put("onDevice", listener.onDevice))
             } else {
-                call.reject("Could not start listening.")
+                fail(call, "Could not start listening.")
             }
         }
     }
@@ -485,6 +485,20 @@ class VoiceCommandPlugin : Plugin() {
         val activity = activity
         if (activity == null || Looper.myLooper() == Looper.getMainLooper()) block()
         else activity.runOnUiThread(block)
+    }
+
+    /**
+     * Refuses a request and says why out loud.
+     *
+     * Every failure the user can hit has to be spoken. In an app driven by voice, a silent
+     * rejection is indistinguishable from the app being broken — which is exactly what
+     * happened when the model failed to unpack: each command was rejected, nothing was
+     * said, and the app looked dead. The most important failure to speak is the one where
+     * the engine itself will not start, because then nothing else can work either.
+     */
+    private fun fail(call: PluginCall, message: String) {
+        ui { speaker.say(message) }
+        call.reject(message)
     }
 
     private fun outcomesToJs(outcomes: List<Executor.Outcome>): JSArray {
