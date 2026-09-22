@@ -87,7 +87,25 @@ class Brain(private val ctx: Context) {
     val systemFile: File get() = File(ctx.filesDir, "system.txt")
 
     val enginePresent: Boolean get() = engineFile.isFile
-    val modelPresent: Boolean get() = weightsFile.isFile && weightsFile.length() > 1024 * 1024
+
+    /**
+     * True when the model is usable, which on a fresh install means "bundled in the APK"
+     * rather than "already unpacked". Checking only the extracted file made a first launch
+     * report "Model missing from this build" and skip preparation, even though tapping the
+     * microphone would have started it correctly.
+     */
+    val modelPresent: Boolean
+        get() = (weightsFile.isFile && weightsFile.length() > 1024 * 1024) || modelBundled
+
+    /** Whether needle3.cact is inside the APK's assets. Read once. */
+    private val modelBundled: Boolean by lazy {
+        try {
+            // openFd works because the asset is stored uncompressed (noCompress 'cact').
+            ctx.assets.openFd(MODEL_ASSET).use { it.length > 1024 * 1024 }
+        } catch (_: Exception) {
+            false
+        }
+    }
     val isRunning: Boolean get() = process?.isAlive == true && port > 0
 
     /** Copies the bundled model and schema out of the APK once. */

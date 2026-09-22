@@ -21,3 +21,7 @@ android/local.properties
 android/capacitor-cordova-android-plugins/build/
 *.apk
 *.aab
+
+# Downloaded build artifacts land here. A 38 MB APK was accidentally committed once; it
+# does not belong in the history of a source repository.
+dist/
