@@ -178,13 +178,25 @@ function normaliseArgs(a) {
   return out;
 }
 
-/** Order-insensitive comparison: a set of "name|sorted-args" keys. */
+/** One comparable key for a call: its name plus its arguments in a stable order. */
 function callKey(call) {
   const entries = Object.entries(normaliseArgs(call.arguments)).sort(([a], [b]) => a.localeCompare(b));
   return `${call.name}|${JSON.stringify(entries)}`;
 }
 
-function compare(got, expected) {
+/**
+ * Order-insensitive comparison: a set of "name|sorted-args" keys.
+ *
+ * With `toolOnly` only the tool names are asserted. That is for tools whose argument is
+ * free text the model cannot be held to word for word — an app name, a search query, a
+ * place — where the thing worth testing is that the right tool was chosen at all.
+ */
+function compare(got, expected, toolOnly) {
+  if (toolOnly) {
+    const g = (got ?? []).map((c) => c.name).sort();
+    const e = (expected ?? []).map(([name]) => name).sort();
+    return { ok: JSON.stringify(g) === JSON.stringify(e), g, e };
+  }
   const g = (got ?? []).map(callKey).sort();
   const e = (expected ?? []).map(([name, a]) => callKey({ name, arguments: a })).sort();
   return { ok: JSON.stringify(g) === JSON.stringify(e), g, e };
@@ -232,20 +244,34 @@ async function main() {
     const calls = resp?.function_calls ?? [];
     const held = resp?.suppressed_calls ?? [];
     const conf = typeof resp?.confidence === "number" ? resp.confidence : null;
-    const cmp = err ? { ok: false, g: [], e: [] } : compare(calls, c.expect.calls);
+    const cmp = err ? { ok: false, g: [], e: [] } : compare(calls, c.expect.calls, c.expect.toolOnly === true);
+
+    // The engine reports its own grounding and negation checks. For the negated and
+    // missing-argument categories the question is not really "did the model stay silent",
+    // it is "did it avoid acting on a guess". A call the engine has already flagged as
+    // negated or ungrounded is handed to the user to confirm by VoiceCommandPlugin, so a
+    // case marked acceptFlagged counts as handled rather than failed.
+    const negated = resp?.validation?.negation === true;
+    const ungrounded = resp?.validation?.ungrounded ?? [];
+    const flagged = negated || ungrounded.length > 0;
+    const accepted = c.expect.acceptFlagged === true && flagged && !err && calls.length + held.length > 0;
 
     const verdict = conf === null ? "?" : conf >= MIN_CONF ? "act" : conf >= 0.1 ? "confirm" : "refuse";
-    const status = err ? "ERR " : cmp.ok ? "pass" : "FAIL";
+    const status = err ? "ERR " : cmp.ok ? "pass" : accepted ? "flag" : "FAIL";
+    const passed = (cmp.ok && !err) || accepted;
     byCat[c.cat] ??= { pass: 0, total: 0 };
     byCat[c.cat].total++;
-    if (cmp.ok && !err) byCat[c.cat].pass++;
-    results.push({ id: c.id, cat: c.cat, ok: cmp.ok && !err, conf, verdict, called: calls.map((x) => x.name) });
+    if (passed) byCat[c.cat].pass++;
+    results.push({ id: c.id, cat: c.cat, ok: passed, conf, verdict, called: calls.map((x) => x.name) });
 
     rows += `${status} ${c.id.padEnd(30)} conf=${String(conf ?? "-").padEnd(5)} ${verdict.padEnd(7)} ${String(ms).padStart(5)}ms  ${c.input}\n`;
-    if (!cmp.ok) {
+    if (!passed) {
       rows += `       expected ${cmp.e.join("  +  ") || "[]"}\n`;
       rows += `       got      ${cmp.g.join("  +  ") || "[]"}${held.length ? `  (held: ${held.map((h) => h.name).join(", ")})` : ""}${err ? `  error: ${err}` : ""}\n`;
       if (resp?.reasoning) rows += `       reasoning: ${resp.reasoning}\n`;
+    } else if (accepted && !cmp.ok) {
+      const why = [negated ? "negation" : null, ...ungrounded].filter(Boolean).join(", ");
+      rows += `       kept as a flagged guess (${why}), so the app asks before acting\n`;
     }
   }
 

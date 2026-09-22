@@ -2,6 +2,7 @@ package com.voicecmd.center
 
 import android.Manifest
 import android.content.Context
+import android.net.Uri
 import android.provider.ContactsContract
 
 /** A candidate match, ranked so the most specific one wins. */
@@ -35,6 +36,32 @@ object Contacts {
 
     private fun normalise(value: String): String =
         value.lowercase().filter { it.isLetterOrDigit() }
+
+    /**
+     * Looks a phone number up in contacts so a read-out can say a name instead of a
+     * string of digits. Returns null when contacts are unreadable or nothing matches.
+     */
+    fun nameFor(ctx: Context, address: String): String? {
+        if (address.isBlank()) return null
+        if (!Capabilities.granted(ctx, Manifest.permission.READ_CONTACTS)) return null
+        return try {
+            val uri = Uri.withAppendedPath(
+                ContactsContract.PhoneLookup.CONTENT_FILTER_URI,
+                Uri.encode(address),
+            )
+            ctx.contentResolver.query(
+                uri,
+                arrayOf(ContactsContract.PhoneLookup.DISPLAY_NAME),
+                null,
+                null,
+                null,
+            )?.use { cursor ->
+                if (cursor.moveToFirst()) cursor.getString(0) else null
+            }
+        } catch (_: Exception) {
+            null
+        }
+    }
 
     /**
      * Best match for a spoken name. Returns the number and the contact name it matched,

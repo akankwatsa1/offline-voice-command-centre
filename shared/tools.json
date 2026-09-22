@@ -12,7 +12,8 @@
         }
       },
       "required": ["action"]
-    }
+    },
+    "triggers": ["^(?![\\s\\S]*\\b(and|then)\\b)[\\s\\S]*\\b(wi-?fi|wireless|wlan)\\b"]
   },
   {
     "name": "set_hotspot",
@@ -28,7 +29,7 @@
       },
       "required": ["action"]
     },
-    "triggers": ["\\btether\\w*\\b", "\\bpersonal hotspot\\b"]
+    "triggers": ["^(?![\\s\\S]*\\b(and|then)\\b)[\\s\\S]*\\b(tether\\w*|hotspot|hot spot)\\b"]
   },
   {
     "name": "set_torch",
@@ -43,7 +44,8 @@
         }
       },
       "required": ["action"]
-    }
+    },
+    "triggers": ["^(?![\\s\\S]*\\b(and|then)\\b)[\\s\\S]*\\b(flashlight|torch)\\b"]
   },
   {
     "name": "send_sms",
@@ -66,8 +68,40 @@
     }
   },
   {
+    "name": "dial_contact",
+    "description": "Phone a person the user named, for example 'call mum'. The name is looked up in the user's own contacts, so no number is needed. This starts a call; it does not answer one.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "recipient": {
+          "type": "string",
+          "description": "the name of the person, or the phone number, the user wants to phone",
+          "minLength": 1
+        }
+      },
+      "required": ["recipient"]
+    },
+    "triggers": ["^(?![\\s\\S]*\\b(and|then|remind|reminder|text|message|alarm|volume|mute|unmute|louder|quieter)\\b)[\\s\\S]*\\b(call|ring|dial|phone)\\s+(?!the\\b|it\\b|a\\b|up\\b|down\\b)"]
+  },
+  {
+    "name": "read_messages",
+    "description": "Read the user's recent text messages out loud, saying who each one is from.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "count": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10,
+          "default": 3,
+          "description": "how many messages to read, when the user names a number"
+        }
+      }
+    }
+  },
+  {
     "name": "set_reminder",
-    "description": "Set a reminder or an alarm that goes off at a time the user names, including waking the user up at a time.",
+    "description": "Set a reminder that alerts the user at a time the user names, for something the user has to do. A reminder appears as a notification with a short note on it. The user asks to be reminded.",
     "parameters": {
       "type": "object",
       "properties": {
@@ -83,7 +117,156 @@
         }
       },
       "required": ["when", "text"]
+    }
+  },
+  {
+    "name": "set_alarm",
+    "description": "Set an alarm in the phone's clock app, for waking the user up. The user asks for an alarm or to be woken. An alarm rings loudly and has a snooze, and carries no note.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "when": {
+          "type": "string",
+          "description": "the time the alarm should ring, exactly as the user said it, for example 'at 6 am' or '7:30'",
+          "minLength": 1
+        }
+      },
+      "required": ["when"]
     },
     "triggers": ["\\bwake me\\b"]
+  },
+  {
+    "name": "set_timer",
+    "description": "Start a countdown timer that rings after a length of time the user names, for cooking or a short break.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "duration": {
+          "type": "string",
+          "description": "the length of the countdown exactly as the user said it, for example '10 minutes' or '1 hour 30 minutes'",
+          "minLength": 1
+        }
+      },
+      "required": ["duration"]
+    }
+  },
+  {
+    "name": "set_volume",
+    "description": "Change how loud the phone is: turn the sound up or down, set it to a level, mute it, or unmute it.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "action": {
+          "type": "string",
+          "enum": ["up", "down", "set", "mute", "unmute"],
+          "description": "up or down to change the volume, set to use the level the user named, mute or unmute the phone"
+        },
+        "level": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "the percentage the user named, used only when the action is set"
+        },
+        "stream": {
+          "type": "string",
+          "enum": ["media", "ring", "alarm", "notification", "call"],
+          "description": "which sound the user meant, when they said so, for example ringtone or music"
+        }
+      },
+      "required": ["action"]
+    }
+  },
+  {
+    "name": "open_app",
+    "description": "Open or launch an app that is installed on the phone, named by the user.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "app_name": {
+          "type": "string",
+          "description": "the name of the app the user wants to open, copied from the request",
+          "minLength": 1
+        }
+      },
+      "required": ["app_name"]
+    }
+  },
+  {
+    "name": "open_settings",
+    "description": "Open one of the phone's settings screens for the user to change by hand, such as Bluetooth settings or Accessibility settings.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "panel": {
+          "type": "string",
+          "enum": [
+            "bluetooth",
+            "mobile data",
+            "airplane mode",
+            "accessibility",
+            "sound",
+            "display",
+            "battery",
+            "apps",
+            "location",
+            "storage",
+            "date and time"
+          ],
+          "description": "the settings screen the user asked for"
+        }
+      },
+      "required": ["panel"]
+    }
+  },
+  {
+    "name": "navigate_to",
+    "description": "Get directions to a place or address the user named, by opening the maps app.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "place": {
+          "type": "string",
+          "description": "the place or address the user wants directions to, copied from the request",
+          "minLength": 1
+        },
+        "mode": {
+          "type": "string",
+          "enum": ["driving", "walking", "cycling", "transit"],
+          "description": "how the user wants to travel, when they said so"
+        }
+      },
+      "required": ["place"]
+    }
+  },
+  {
+    "name": "search_web",
+    "description": "Look something up on the internet, such as a fact, the weather, a shop or a piece of news, by opening the user's browser with their search.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "query": {
+          "type": "string",
+          "description": "what the user wants to search for, copied from the request",
+          "minLength": 1
+        }
+      },
+      "required": ["query"]
+    }
+  },
+  {
+    "name": "answer_call",
+    "description": "Pick up the call that is ringing right now, or hang up a call already in progress. This never phones anybody.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "action": {
+          "type": "string",
+          "enum": ["answer", "end"],
+          "description": "answer to pick the ringing call up, end to hang up the call"
+        }
+      },
+      "required": ["action"]
+    },
+    "triggers": ["\\b(answer the call|answer it|pick up the call|pick it up|hang up|end the call)\\b"]
   }
 ]

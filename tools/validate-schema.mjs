@@ -124,9 +124,13 @@ for (const c of suite.cases ?? []) {
         fail(`${c.id}: ${name}.${arg} must be a string`);
       }
     }
-    for (const required of tool.parameters.required ?? []) {
-      if (!(required in args)) {
-        fail(`${c.id}: ${name} is missing required argument "${required}"`);
+    // A toolOnly case asserts the tool choice and deliberately leaves free-text
+    // arguments out, so the required-argument completeness check does not apply.
+    if (c.expect.toolOnly !== true) {
+      for (const required of tool.parameters.required ?? []) {
+        if (!(required in args)) {
+          fail(`${c.id}: ${name} is missing required argument "${required}"`);
+        }
       }
     }
   }

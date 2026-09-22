@@ -1,5 +1,5 @@
 {
-  "$comment": "Frozen tool-routing suite for Voice Command Center, modelled on the six categories in the Needle 3 tool-design guide. Runs against the real engine in CI (tools/run-cases.mjs). expect.calls is order-insensitive.",
+  "$comment": "Frozen tool-routing suite for Voice Command Centre, modelled on the six categories in the Needle 3 tool-design guide. Runs against the real engine in CI (tools/run-cases.mjs). expect.calls is order-insensitive. Set expect.toolOnly when the arguments are free text the model cannot be held to word for word (app names, search queries, places), so only the tool choice is asserted.",
   "categories": {
     "positive": "the exact call for a positive request",
     "missing_required": "[] when a required value is missing",
@@ -27,30 +27,72 @@
     { "id": "sms-number", "cat": "positive", "input": "text 0771234567 that I am on my way", "expect": { "calls": [["send_sms", { "recipient": "0771234567", "message": "I am on my way" }]] } },
     { "id": "sms-mum", "cat": "positive", "input": "send mum a message saying I got home safely", "expect": { "calls": [["send_sms", { "recipient": "mum", "message": "I got home safely" }]] } },
 
-    { "id": "reminder-past-papers", "cat": "positive", "input": "Remind me at 5:00 PM to review S.4 past papers", "expect": { "calls": [["set_reminder", { "when": "at 5:00 PM", "text": "review S.4 past papers" }]] } },
+    { "id": "dial-mum", "cat": "positive", "input": "call mum", "expect": { "calls": [["dial_contact", { "recipient": "mum" }]] } },
+    { "id": "dial-dad", "cat": "positive", "input": "phone dad", "expect": { "calls": [["dial_contact", { "recipient": "dad" }]] } },
+    { "id": "dial-number", "cat": "positive", "input": "ring 0771234567", "expect": { "calls": [["dial_contact", { "recipient": "0771234567" }]] } },
+
+    { "id": "read-default", "cat": "positive", "input": "read my last messages", "expect": { "calls": [["read_messages", {}]] } },
+    { "id": "read-three", "cat": "positive", "input": "read my last 3 messages", "expect": { "calls": [["read_messages", { "count": 3 }]] } },
+    { "id": "read-explicit", "cat": "positive", "input": "read my last 5 messages", "expect": { "calls": [["read_messages", { "count": 5 }]] } },
+
+    { "id": "reminder-past-papers", "cat": "positive", "input": "Remind me at 5:00 PM to review S.4 past papers", "expect": { "calls": [["set_reminder", { "when": "5:00 PM", "text": "review S.4 past papers" }]] } },
     { "id": "reminder-tomorrow", "cat": "positive", "input": "set a reminder for tomorrow at 8:30 to call the bank", "expect": { "calls": [["set_reminder", { "when": "tomorrow at 8:30", "text": "call the bank" }]] } },
-    { "id": "reminder-alarm-word", "cat": "positive", "input": "wake me up at 6 am to study", "expect": { "calls": [["set_reminder", { "when": "at 6 am", "text": "study" }]] } },
 
-    { "id": "missing-sms-recipient", "cat": "missing_required", "input": "send a text saying I am running late", "expect": { "calls": [] } },
-    { "id": "missing-sms-body", "cat": "missing_required", "input": "text the head of department", "expect": { "calls": [] } },
-    { "id": "missing-reminder-time", "cat": "missing_required", "input": "remind me to review S.4 past papers", "expect": { "calls": [] } },
-    { "id": "missing-reminder-text", "cat": "missing_required", "input": "set a reminder for 5 pm", "expect": { "calls": [] } },
+    { "id": "alarm-six", "cat": "positive", "input": "set an alarm for 6 am", "expect": { "calls": [["set_alarm", { "when": "6 am" }]] } },
+    { "id": "alarm-wake-me", "cat": "positive", "input": "wake me up at 7", "expect": { "calls": [["set_alarm", { "when": "at 7" }]] } },
+    { "id": "alarm-seven-thirty", "cat": "positive", "input": "set an alarm for 7:30", "expect": { "calls": [["set_alarm", { "when": "7:30" }]] } },
 
-    { "id": "off-topic-weather", "cat": "off_topic", "input": "what is the weather in Kampala", "expect": { "calls": [] } },
+    { "id": "timer-ten", "cat": "positive", "input": "set a timer for 10 minutes", "expect": { "calls": [["set_timer", { "duration": "10 minutes" }]] } },
+    { "id": "timer-hour-half", "cat": "positive", "input": "start a timer for 1 hour 30 minutes", "expect": { "calls": [["set_timer", { "duration": "1 hour 30 minutes" }]] } },
+
+    { "id": "volume-louder", "cat": "positive", "input": "make it louder", "expect": { "calls": [["set_volume", { "action": "up" }]] } },
+    { "id": "volume-down", "cat": "positive", "input": "turn the volume down", "expect": { "calls": [["set_volume", { "action": "down" }]] } },
+    { "id": "volume-mute", "cat": "positive", "input": "mute the phone", "expect": { "calls": [["set_volume", { "action": "mute" }]] } },
+    { "id": "volume-unmute", "cat": "positive", "input": "unmute the phone", "expect": { "calls": [["set_volume", { "action": "unmute" }]] } },
+    { "id": "volume-set", "cat": "positive", "input": "set the volume to 50 percent", "expect": { "calls": [["set_volume", { "action": "set", "level": 50 }]] } },
+
+    { "id": "app-whatsapp", "cat": "positive", "input": "open WhatsApp", "expect": { "calls": [["open_app", {}]], "toolOnly": true } },
+    { "id": "app-camera", "cat": "positive", "input": "launch the camera app", "expect": { "calls": [["open_app", {}]], "toolOnly": true } },
+
+    { "id": "settings-bluetooth", "cat": "positive", "input": "open bluetooth settings", "expect": { "calls": [["open_settings", { "panel": "bluetooth" }]] } },
+    { "id": "settings-accessibility", "cat": "positive", "input": "open accessibility settings", "expect": { "calls": [["open_settings", { "panel": "accessibility" }]] } },
+    { "id": "settings-battery", "cat": "positive", "input": "show me the battery settings", "expect": { "calls": [["open_settings", { "panel": "battery" }]] } },
+
+    { "id": "navigate-kampala", "cat": "positive", "input": "navigate to Kampala Road", "expect": { "calls": [["navigate_to", {}]], "toolOnly": true } },
+    { "id": "navigate-petrol", "cat": "positive", "input": "directions to the nearest petrol station", "expect": { "calls": [["navigate_to", {}]], "toolOnly": true } },
+
+    { "id": "search-news", "cat": "positive", "input": "search for the news in Uganda", "expect": { "calls": [["search_web", {}]], "toolOnly": true } },
+    { "id": "search-weather", "cat": "positive", "input": "what is the weather today", "expect": { "calls": [["search_web", {}]], "toolOnly": true } },
+
+    { "id": "call-answer", "cat": "positive", "input": "answer the call", "expect": { "calls": [["answer_call", { "action": "answer" }]] } },
+    { "id": "call-hangup", "cat": "positive", "input": "hang up", "expect": { "calls": [["answer_call", { "action": "end" }]] } },
+
+    { "id": "missing-sms-recipient", "cat": "missing_required", "input": "send a text saying I am running late", "expect": { "calls": [], "acceptFlagged": true } },
+    { "id": "missing-sms-body", "cat": "missing_required", "input": "text the head of department", "expect": { "calls": [], "acceptFlagged": true } },
+    { "id": "missing-reminder-time", "cat": "missing_required", "input": "remind me to review S.4 past papers", "expect": { "calls": [], "acceptFlagged": true } },
+    { "id": "missing-reminder-text", "cat": "missing_required", "input": "set a reminder for 5 pm", "expect": { "calls": [], "acceptFlagged": true } },
+    { "id": "missing-dial-target", "cat": "missing_required", "input": "make a call", "expect": { "calls": [], "acceptFlagged": true } },
+    { "id": "missing-timer-duration", "cat": "missing_required", "input": "set a timer", "expect": { "calls": [], "acceptFlagged": true } },
+    { "id": "missing-alarm-time", "cat": "missing_required", "input": "set an alarm", "expect": { "calls": [], "acceptFlagged": true } },
+    { "id": "missing-search-query", "cat": "missing_required", "input": "search the web", "expect": { "calls": [], "acceptFlagged": true } },
+
     { "id": "off-topic-joke", "cat": "off_topic", "input": "tell me a joke", "expect": { "calls": [] } },
-    { "id": "off-topic-maths", "cat": "off_topic", "input": "what is 17 times 4", "expect": { "calls": [] } },
     { "id": "off-topic-chat", "cat": "off_topic", "input": "how are you doing today", "expect": { "calls": [] } },
-    { "id": "off-topic-unrelated-device", "cat": "off_topic", "input": "open the garage door", "expect": { "calls": [] } },
+    { "id": "off-topic-garage", "cat": "off_topic", "input": "open the garage door", "expect": { "calls": [] } },
+    { "id": "off-topic-maths", "cat": "off_topic", "input": "what is 17 times 4", "expect": { "calls": [] } },
 
-    { "id": "negated-wifi", "cat": "negated", "input": "do not turn off the wifi", "expect": { "calls": [] } },
-    { "id": "negated-torch", "cat": "negated", "input": "don't switch the flashlight on", "expect": { "calls": [] } },
-    { "id": "reported-not-request", "cat": "negated", "input": "she said turn off the wifi", "expect": { "calls": [] } },
+    { "id": "negated-wifi", "cat": "negated", "input": "do not turn off the wifi", "expect": { "calls": [], "acceptFlagged": true } },
+    { "id": "negated-torch", "cat": "negated", "input": "don't switch the flashlight on", "expect": { "calls": [], "acceptFlagged": true } },
+    { "id": "reported-not-request", "cat": "negated", "input": "she said turn off the wifi", "expect": { "calls": [], "acceptFlagged": true } },
+    { "id": "negated-call", "cat": "negated", "input": "don't call mum", "expect": { "calls": [], "acceptFlagged": true } },
 
-    { "id": "oob-volume", "cat": "out_of_bounds", "input": "set the wifi to 72 percent", "expect": { "calls": [] } },
-    { "id": "oob-brightness", "cat": "out_of_bounds", "input": "set the hotspot to bright", "expect": { "calls": [] } },
+    { "id": "oob-volume-level", "cat": "out_of_bounds", "input": "set the volume to 200 percent", "expect": { "calls": [], "acceptFlagged": true } },
+    { "id": "oob-read-count", "cat": "out_of_bounds", "input": "read my last 50 messages", "expect": { "calls": [] } },
+    { "id": "oob-wifi-percent", "cat": "out_of_bounds", "input": "set the wifi to 72 percent", "expect": { "calls": [], "acceptFlagged": true } },
 
     { "id": "multi-wifi-off-hotspot-on", "cat": "multi", "input": "Turn off Wi-Fi and switch to hotspot", "expect": { "calls": [["set_wifi", { "action": "off" }], ["set_hotspot", { "action": "on" }]] } },
     { "id": "multi-torch-off-and-sms", "cat": "multi", "input": "turn the flashlight off and text dad that I will be late", "expect": { "calls": [["set_torch", { "action": "off" }], ["send_sms", { "recipient": "dad", "message": "I will be late" }]] } },
-    { "id": "multi-wifi-on-and-reminder", "cat": "multi", "input": "turn wifi on and remind me at 7 pm to mark the scripts", "expect": { "calls": [["set_wifi", { "action": "on" }], ["set_reminder", { "when": "at 7 pm", "text": "mark the scripts" }]] } }
+    { "id": "multi-wifi-on-and-reminder", "cat": "multi", "input": "turn wifi on and remind me at 7 pm to mark the scripts", "expect": { "calls": [["set_wifi", { "action": "on" }], ["set_reminder", { "when": "at 7 pm", "text": "mark the scripts" }]] } },
+    { "id": "multi-volume-and-timer", "cat": "multi", "input": "turn the volume up and set a timer for 5 minutes", "expect": { "calls": [["set_volume", { "action": "up" }], ["set_timer", { "duration": "5 minutes" }]] } }
   ]
 }

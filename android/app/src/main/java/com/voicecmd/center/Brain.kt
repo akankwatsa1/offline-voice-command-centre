@@ -20,6 +20,11 @@ data class ToolCall(val name: String, val arguments: JSONObject)
  * A turn from the engine. Mirrors the documented response shape: `function_calls` holds
  * the calls to run, `suppressed_calls` holds a call the engine withheld, and an empty
  * `function_calls` with nothing held is an outright refusal.
+ *
+ * `negated` and `ungrounded` come from the engine's own `validation` block. They matter
+ * more than they look: the engine tells us when the request was negative, and when an
+ * argument was invented rather than copied from what the user actually said. Both are
+ * exactly the cases where acting without asking would be wrong.
  */
 data class Reply(
     val type: String?,
@@ -27,6 +32,8 @@ data class Reply(
     val held: List<ToolCall>,
     val reasoning: String?,
     val confidence: Double?,
+    val negated: Boolean,
+    val ungrounded: List<String>,
     val raw: String,
 ) {
     val isRefusal: Boolean get() = calls.isEmpty() && held.isEmpty()
@@ -252,12 +259,23 @@ class Brain(private val ctx: Context) {
     /** Sends one utterance to the model and returns the parsed turn. */
     fun ask(input: String): Reply {
         if (!isRunning) {
-            start()?.let { return Reply(null, emptyList(), emptyList(), null, null, """{"error":"$it"}""") }
+            start()?.let {
+                return Reply(null, emptyList(), emptyList(), null, null, false, emptyList(), """{"error":"$it"}""")
+            }
         }
         val payload = JSONObject().put("input", input).toString()
         val text = post("/complete", payload)
         val json = extractJson(text)
-            ?: return Reply(null, emptyList(), emptyList(), null, null, text)
+            ?: return Reply(null, emptyList(), emptyList(), null, null, false, emptyList(), text)
+
+        // The engine reports its own grounding and negation checks under "validation".
+        val validation = json.optJSONObject("validation")
+        val ungrounded = ArrayList<String>()
+        validation?.optJSONArray("ungrounded")?.let { array ->
+            for (i in 0 until array.length()) {
+                array.optString(i).takeIf { it.isNotEmpty() }?.let { ungrounded.add(it) }
+            }
+        }
 
         return Reply(
             type = json.optString("type").ifEmpty { null },
@@ -265,6 +283,8 @@ class Brain(private val ctx: Context) {
             held = parseCalls(json.optJSONArray("suppressed_calls")),
             reasoning = json.optString("reasoning").ifEmpty { null },
             confidence = if (json.has("confidence") && !json.isNull("confidence")) json.optDouble("confidence") else null,
+            negated = validation?.optBoolean("negation", false) ?: false,
+            ungrounded = ungrounded,
             raw = text,
         )
     }

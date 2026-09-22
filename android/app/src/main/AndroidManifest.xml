@@ -65,7 +65,27 @@
             <data android:scheme="smsto" />
         </intent>
         <intent>
+            <action android:name="android.intent.action.DIAL" />
+            <data android:scheme="tel" />
+        </intent>
+        <intent>
             <action android:name="android.intent.action.SET_ALARM" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.SET_TIMER" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.WEB_SEARCH" />
+        </intent>
+        <!-- navigate_to asks the package manager whether a turn-by-turn app exists
+             before choosing between google.navigation: and a plain geo: pin. -->
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="geo" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="google.navigation" />
         </intent>
     </queries>
 
@@ -75,8 +95,18 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- Speech input. -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
-    <!-- Turning a spoken contact name into a phone number for send_sms. -->
+    <!-- Turning a spoken contact name into a phone number for send_sms and dial_contact,
+         and turning a number back into a name when reading messages out. -->
     <uses-permission android:name="android.permission.READ_CONTACTS" />
+    <!-- read_messages reads the inbox aloud. On a sideloaded build this is grantable;
+         it is a restricted permission only for Play Store distribution. -->
+    <uses-permission android:name="android.permission.READ_SMS" />
+    <!-- answer_call needs both: one to pick the call up, one to see that it is ringing. -->
+    <uses-permission android:name="android.permission.ANSWER_PHONE_CALLS" />
+    <uses-permission android:name="android.permission.READ_PHONE_STATE" />
+    <!-- open_app looks an app up by the name the user said. Android 11+ hides the app
+         list without this, so "open WhatsApp" would find nothing. -->
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
     <!-- Android 13+ runtime permission for the reminder notification. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <!-- Exact reminders on Android 12+. Checked at runtime with

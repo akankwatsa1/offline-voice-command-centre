@@ -41,6 +41,48 @@ object TimePhrases {
     /** A resolved instant plus the wording to read back to the user. */
     data class Resolved(val atMillis: Long, val spoken: String, val guessedDay: Boolean)
 
+    private val DURATION_PART = Regex("""(\d+)\s*(hours?|hrs?|h|minutes?|mins?|m|seconds?|secs?|s)\b""")
+
+    /**
+     * Parses a length of time for a countdown, as in "10 minutes", "1 hour 30 minutes" or
+     * "90 seconds". Returns milliseconds, or null when nothing usable is present.
+     */
+    fun parseDuration(phrase: String): Long? {
+        val text = phrase.lowercase(Locale.US).trim()
+        if (text.isEmpty()) return null
+        var total = 0L
+        var found = false
+        for (m in DURATION_PART.findAll(text)) {
+            val amount = m.groupValues[1].toLongOrNull() ?: continue
+            val unit = m.groupValues[2]
+            total += when {
+                unit.startsWith("h") -> amount * 3_600_000
+                unit.startsWith("m") -> amount * 60_000
+                else -> amount * 1_000
+            }
+            found = true
+        }
+        // A bare number with no unit is not worth guessing a unit for.
+        if (!found || total <= 0) return null
+        // A misparse should not become an absurd wait.
+        if (total > 24L * 3_600_000) return null
+        return total
+    }
+
+    /** Reads a duration back in words, for the spoken confirmation. */
+    fun describeDuration(millis: Long): String {
+        val total = millis / 1000
+        val hours = total / 3600
+        val minutes = (total % 3600) / 60
+        val seconds = total % 60
+        val parts = ArrayList<String>(3)
+        if (hours > 0) parts.add(if (hours == 1L) "1 hour" else "$hours hours")
+        if (minutes > 0) parts.add(if (minutes == 1L) "1 minute" else "$minutes minutes")
+        // Seconds are only worth saying for short timers.
+        if (seconds > 0 && hours == 0L) parts.add(if (seconds == 1L) "1 second" else "$seconds seconds")
+        return if (parts.isEmpty()) "a moment" else parts.joinToString(" ")
+    }
+
     fun parse(phrase: String, now: Long = System.currentTimeMillis()): Resolved? {
         val text = phrase.lowercase(Locale.US).trim()
         if (text.isEmpty()) return null

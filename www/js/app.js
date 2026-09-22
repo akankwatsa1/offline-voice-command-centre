@@ -237,6 +237,8 @@
     };
     set("microphone", p.permissionMicrophone);
     set("contacts", p.permissionContacts);
+    set("sms", p.permissionSms);
+    set("phone", p.permissionPhone);
     set("notifications", p.permissionNotifications);
   }
 

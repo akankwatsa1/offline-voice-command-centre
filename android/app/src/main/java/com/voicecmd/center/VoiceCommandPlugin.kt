@@ -36,6 +36,14 @@ import org.json.JSONObject
         Permission(alias = "microphone", strings = [Manifest.permission.RECORD_AUDIO]),
         Permission(alias = "contacts", strings = [Manifest.permission.READ_CONTACTS]),
         Permission(alias = "notifications", strings = [Manifest.permission.POST_NOTIFICATIONS]),
+        Permission(alias = "sms", strings = [Manifest.permission.READ_SMS]),
+        Permission(
+            alias = "phone",
+            strings = [
+                Manifest.permission.ANSWER_PHONE_CALLS,
+                Manifest.permission.READ_PHONE_STATE,
+            ],
+        ),
     ],
 )
 class VoiceCommandPlugin : Plugin() {
@@ -43,6 +51,47 @@ class VoiceCommandPlugin : Plugin() {
     companion object {
         /** At or above this the call is carried out; below it the UI asks first. */
         private const val DEFAULT_THRESHOLD = 0.7
+
+        /** Words that make a request plausibly about reading messages. */
+        private val READ_ANCHORS = Regex("""\b(read|reading|message|messages|text|texts|inbox|sms)\b""")
+
+        /** Phrasings that mean "turn the other thing on instead". */
+        private val SWITCH_TO = Regex("""\b(switch to|switch over to|change to|use the|instead|onto)\b""")
+    }
+
+    /**
+     * Repairs two failures the model makes consistently, both visible on the frozen suite.
+     *
+     * 1. `read_messages` has no required arguments, which made it the tool the model fell
+     *    back on for anything it did not recognise — "tell me a joke" and "what is 17
+     *    times 4" both came back as reading the inbox. Reading someone's private messages
+     *    because they asked for a joke is not a mistake worth tolerating, so the call is
+     *    dropped unless the request actually mentions messages.
+     *
+     * 2. "Turn off Wi-Fi and switch to hotspot" came back as set_hotspot(off), because the
+     *    polarity of the first clause was carried into the second. Switching *to* the
+     *    hotspot means turning it on, so that is corrected rather than confirmed.
+     */
+    private fun repair(
+        input: String,
+        calls: List<ToolCall>,
+        into: MutableList<ToolCall>,
+        dropped: MutableList<String>,
+    ) {
+        val text = input.lowercase()
+        for (call in calls) {
+            if (call.name == "read_messages" && !READ_ANCHORS.containsMatchIn(text)) {
+                dropped.add(call.name)
+                continue
+            }
+            if (call.name == "set_hotspot" &&
+                call.arguments.optString("action").equals("off", ignoreCase = true) &&
+                SWITCH_TO.containsMatchIn(text)
+            ) {
+                call.arguments.put("action", "on")
+            }
+            into.add(call)
+        }
     }
 
     private lateinit var brain: Brain
@@ -146,29 +195,55 @@ class VoiceCommandPlugin : Plugin() {
         result.put("confidence", reply.confidence ?: JSONObject.NULL)
         result.put("reasoning", reply.reasoning ?: JSONObject.NULL)
 
-        // A negative, reported or hypothetical phrasing never acts on the model's score
-        // alone. See Guard for why this gate exists at all.
+        // Three independent reasons to ask before acting rather than after it:
+        //  - the local guard, for phrasings that read as negative, reported or hypothetical
+        //  - the engine's own negation flag for this turn
+        //  - the engine's list of arguments it could not ground in what the user actually
+        //    said, which is how an invented recipient or time gets caught before it runs
         val guard = Guard.reasonToConfirm(input)
+            ?: when {
+                reply.negated -> "That sounded like a negative, so confirm what you meant first."
+                reply.ungrounded.isNotEmpty() ->
+                    "I had to guess at " +
+                        reply.ungrounded.joinToString(" and ") { it.substringAfter('.') } +
+                        ", so please check that first."
+                else -> null
+            }
         result.put("guard", guard ?: JSONObject.NULL)
+        result.put("negated", reply.negated)
+        val ungrounded = JSArray()
+        reply.ungrounded.forEach { ungrounded.put(it) }
+        result.put("ungrounded", ungrounded)
 
-        val confident = reply.calls.isNotEmpty() && (reply.confidence ?: 0.0) >= threshold
+        // Two corrections the model cannot be trusted to make for itself, both of which
+        // showed up repeatedly on the frozen suite. See repair().
+        val attempts = ArrayList<ToolCall>(reply.calls.size)
+        val dropped = ArrayList<String>()
+        repair(input, reply.calls, attempts, dropped)
+        if (dropped.isNotEmpty()) {
+            val droppedJs = JSArray()
+            dropped.forEach { droppedJs.put(it) }
+            result.put("dropped", droppedJs)
+        }
+
+        val confident = attempts.isNotEmpty() && (reply.confidence ?: 0.0) >= threshold
         val decision = when {
             confident && guard == null -> "act"
-            reply.calls.isNotEmpty() || reply.held.isNotEmpty() -> "confirm"
+            attempts.isNotEmpty() || reply.held.isNotEmpty() -> "confirm"
             else -> "refuse"
         }
         result.put("decision", decision)
 
         when (decision) {
             "act" -> {
-                val outcomes = reply.calls.map { executor.execute(it) }
+                val outcomes = attempts.map { executor.execute(it) }
                 result.put("outcomes", outcomesToJs(outcomes))
                 val spoken = outcomes.joinToString(" ") { it.spoken }
                 result.put("spoken", spoken)
                 if (autoSpeak && spoken.isNotBlank()) ui { speaker.say(spoken) }
             }
             "confirm" -> {
-                val pending = if (reply.calls.isNotEmpty()) reply.calls else reply.held
+                val pending = if (attempts.isNotEmpty()) attempts else reply.held
                 result.put("calls", callsToJs(pending))
                 val spoken = guard ?: describeCalls(pending)
                 result.put("spoken", spoken)
@@ -311,7 +386,9 @@ class VoiceCommandPlugin : Plugin() {
         val alias = call.getString("alias")
         // The null check is first so that `alias` smart-casts to String below; a bare
         // `!in` test leaves it nullable as far as the compiler is concerned.
-        if (alias == null || alias !in listOf("microphone", "contacts", "notifications")) {
+        if (alias == null ||
+            alias !in listOf("microphone", "contacts", "notifications", "sms", "phone")
+        ) {
             call.reject("Unknown permission \"$alias\".")
             return
         }
@@ -328,6 +405,8 @@ class VoiceCommandPlugin : Plugin() {
     private fun putPermissionStates(target: JSObject) {
         target.put("permissionMicrophone", getPermissionState("microphone").toString())
         target.put("permissionContacts", getPermissionState("contacts").toString())
+        target.put("permissionSms", getPermissionState("sms").toString())
+        target.put("permissionPhone", getPermissionState("phone").toString())
         // POST_NOTIFICATIONS does not exist before Android 13, and querying it there
         // reports "denied" even though notifications work fine.
         target.put(
