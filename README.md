@@ -9,26 +9,44 @@ phone.
 
 ---
 
-## What it is honest about
+## The fifteen commands
 
-Android does not let an ordinary app do everything a voice assistant seems to promise, so
-each action reports the tier it actually used:
-
-| Action | Tier | What really happens |
-| --- | --- | --- |
-| Flashlight | **silent** | `CameraManager.setTorchMode`. No permission needed. |
-| Reminder | **silent** | `AlarmManager`, exact when you have allowed exact alarms, otherwise a few minutes late and it says so. |
-| Text message | **confirm** | `ACTION_SENDTO` opens your messaging app with the body written. You tap send. |
-| Wi-Fi | **panel** | Opens the internet panel. On Android 10+ `setWifiEnabled` is a no-op for apps. A root shell makes it silent. |
-| Hotspot | **panel** | Tethering is an `@SystemApi`. No app can toggle it. The panel is the real answer. |
+| Say | Tool | Tier | What really happens |
+| --- | --- | --- | --- |
+| "Turn on the flashlight" | `set_torch` | **silent** | `CameraManager.setTorchMode`. No permission needed. |
+| "Mute the phone", "make it louder" | `set_volume` | **silent** | `AudioManager`. Media, ringer, alarm or notification stream. |
+| "Remind me at 5 to mark the scripts" | `set_reminder` | **silent** | `AlarmManager`, exact when exact alarms are allowed, otherwise a few minutes late and it says so. |
+| "Set an alarm for 6 am" | `set_alarm` | **silent** | Handed to the clock app, so it snoozes and rings full-screen. |
+| "Set a timer for 10 minutes" | `set_timer` | **silent** | Also the clock app's, which is what a timer should be. |
+| "Read my last messages" | `read_messages` | **silent** | Reads the inbox aloud, naming who each message is from. Needs the Messages permission. |
+| "Answer the call" | `answer_call` | **silent** | `TelecomManager.acceptRingingCall`, or `endCall` to hang up. Needs the Phone permission. |
+| "Text dad that I'll be late" | `send_sms` | **confirm** | `ACTION_SENDTO` opens your messaging app with the body written. You tap send. |
+| "Call mum" | `dial_contact` | **confirm** | `ACTION_DIAL` opens the dialler with the number ready. You press call. |
+| "Open WhatsApp" | `open_app` | **panel** | Launches the app by the name you said. |
+| "Open Bluetooth settings" | `open_settings` | **panel** | Opens that settings screen for you to change by hand. |
+| "Navigate to Kampala Road" | `navigate_to` | **panel** | Turn-by-turn if a maps app answers, otherwise a map pin and you tap Directions. |
+| "Search for the news in Uganda" | `search_web` | **panel** | Opens your browser. **Needs a data connection** — this is the one hand-off that leaves the phone's own abilities. |
+| "Turn off Wi-Fi" | `set_wifi` | **panel** | Opens the internet panel. On Android 10+ `setWifiEnabled` is a no-op for apps. A root shell makes it silent. |
+| "Turn on the hotspot" | `set_hotspot` | **panel** | Tethering is an `@SystemApi`. No app can toggle it. The panel is the real answer. |
 
 The badge on each result card shows which tier ran, so the app never implies it did
 something it only opened a panel for.
+
+**Two commands from the usual lists are deliberately absent.** Weather and translation need
+either the internet or a second model on the device, and this app's whole premise is that
+understanding happens offline. "What is the weather" therefore opens a web search, which is
+honest about needing data, rather than pretending to answer.
 
 **Needle 3 is a brain, not an ear.** It is a 8–29 MB tool-calling model: it takes text and
 returns tool calls. It does not transcribe speech. Speech-to-text is a separate stage —
 Android's on-device recogniser (`SpeechRecognizer.createOnDeviceSpeechRecognizer`), which
 needs no bundled model. So the 29 MB figure is the understanding layer, not the whole app.
+
+**Fifteen tools means retrieval, not a flat list.** The engine renders five tools directly;
+above that it embeds every schema and puts only the five closest in front of the model for
+each turn. That is the supported path for a catalogue this size, but it means a tool the
+retriever does not surface is unreachable rather than merely unlikely. `validate-schema.mjs`
+warns whenever the count crosses five so the trade-off stays visible.
 
 ---
 
