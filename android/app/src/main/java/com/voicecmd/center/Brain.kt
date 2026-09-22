@@ -89,13 +89,23 @@ class Brain(private val ctx: Context) {
     val enginePresent: Boolean get() = engineFile.isFile
 
     /**
-     * True when the model is usable, which on a fresh install means "bundled in the APK"
-     * rather than "already unpacked". Checking only the extracted file made a first launch
-     * report "Model missing from this build" and skip preparation, even though tapping the
-     * microphone would have started it correctly.
+     * The model unpacked into the app's own storage. This is the only path that may be
+     * handed to the engine, so stageAssets must gate on exactly this and nothing looser.
      */
-    val modelPresent: Boolean
-        get() = (weightsFile.isFile && weightsFile.length() > 1024 * 1024) || modelBundled
+    private val modelExtracted: Boolean
+        get() = weightsFile.isFile && weightsFile.length() > 1024 * 1024
+
+    /**
+     * Whether the model is usable at all: either already unpacked, or still bundled in the
+     * APK waiting to be. The UI asks this question.
+     *
+     * Keep this separate from modelExtracted. Conflating the two is a trap this code has
+     * already fallen into once: gating the unpack on "is the model available anywhere"
+     * makes it skip the unpack, because the model bundled in the APK counts as available,
+     * and the engine is then handed a path that does not exist. It fails to start, and
+     * every command silently does nothing.
+     */
+    val modelPresent: Boolean get() = modelExtracted || modelBundled
 
     /** Whether needle3.cact is inside the APK's assets. Read once. */
     private val modelBundled: Boolean by lazy {
@@ -112,7 +122,7 @@ class Brain(private val ctx: Context) {
     fun stageAssets(): String? {
         if (!enginePresent) return "This build has no Needle engine for this device's CPU (needs arm64-v8a)."
         try {
-            if (!modelPresent) {
+            if (!modelExtracted) {
                 Log.i(TAG, "extracting $MODEL_ASSET to ${weightsFile.absolutePath}")
                 ctx.assets.open(MODEL_ASSET).use { input ->
                     File(ctx.filesDir, "$MODEL_ASSET.part").outputStream().use { output ->
@@ -169,6 +179,15 @@ class Brain(private val ctx: Context) {
         if (stageProblem != null) {
             lastError = stageProblem
             return stageProblem
+        }
+        // Refuse to start without a model file on disk. Without this the engine is launched
+        // with a path that does not exist, dies immediately, and every command does nothing
+        // with no explanation — which is exactly what happened when the extraction was
+        // skipped once. A loud failure here is far better than a silent one later.
+        if (!modelExtracted) {
+            val message = "The voice model is not unpacked in the app's storage and could not be unpacked from the APK."
+            lastError = message
+            return message
         }
         writeSystemFacts()
 
