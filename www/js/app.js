@@ -473,10 +473,26 @@
       el("toggle-volume").textContent = volumeOn ? "Turn off" : "Turn on";
       el("state-bubble").textContent = bubbleOn ? "on" : t.bubbleEnabled && !t.canDrawOverlays ? "needs permission" : "off";
       el("toggle-bubble").textContent = bubbleOn ? "Turn off" : "Turn on";
+      const wakeOn = !!t.wakeWordEnabled;
+      el("state-wake").textContent = wakeOn ? "on" : "off";
+      el("toggle-wake").textContent = wakeOn ? "Turn off" : "Turn on";
     } catch (e) {
       appendLog("trigger status failed: " + ((e && e.message) || e));
     }
   }
+
+  el("toggle-wake").addEventListener("click", async () => {
+    if (!VC) return;
+    const on = el("state-wake").textContent === "on";
+    setStatus(on ? "Stopping…" : "Starting…");
+    try {
+      await VC.setWakeWord({ enabled: !on });
+    } catch (e) {
+      appendLog("wake word toggle failed: " + ((e && e.message) || e));
+    }
+    // The service takes a moment to start or stop, so re-read rather than assume.
+    setTimeout(refreshTriggers, 1500);
+  });
 
   el("toggle-volume").addEventListener("click", async () => {
     if (!VC) return;

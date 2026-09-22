@@ -69,6 +69,16 @@
                 android:name="android.accessibilityservice"
                 android:resource="@xml/voice_access_service" />
         </service>
+
+        <!--
+          Always-on listening for "Hey VCC". Not exported and not sticky: it starts only
+          when the user asks for it and stays off after a restart. A microphone that
+          re-arms itself would be the wrong default for anyone.
+        -->
+        <service
+            android:name=".WakeWordService"
+            android:exported="false"
+            android:foregroundServiceType="microphone" />
     </application>
 
     <!--
@@ -131,6 +141,10 @@
     <!-- The floating microphone. Granted from Settings > Apps > Special access, not by a
          runtime prompt, so the app has to send the user there. -->
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+    <!-- Always-on wake-word listening. Android 14+ requires the typed permission to match
+         the service's declared foregroundServiceType, or the service cannot start at all. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
     <!-- Exact reminders on Android 12+. Checked at runtime with
          AlarmManager.canScheduleExactAlarms(); the app falls back when it is denied. -->
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />

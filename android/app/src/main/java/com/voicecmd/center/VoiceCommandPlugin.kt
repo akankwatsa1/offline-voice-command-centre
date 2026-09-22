@@ -558,8 +558,37 @@ class VoiceCommandPlugin : Plugin() {
                 .put("accessibilityServiceOn", VoiceAccessService.instance != null)
                 .put("volumeKeyEnabled", VoicePrefs.volumeKeyEnabled(context))
                 .put("bubbleEnabled", VoicePrefs.bubbleEnabled(context))
-                .put("canDrawOverlays", Settings.canDrawOverlays(context)),
+                .put("canDrawOverlays", Settings.canDrawOverlays(context))
+                .put(
+                    "wakeWordEnabled",
+                    VoicePrefs.wakeWordEnabled(context) && WakeWordService.running,
+                ),
         )
+    }
+
+    /**
+     * Starts or stops always-on listening for "Hey VCC".
+     *
+     * Stopping is deliberately as easy as starting: the preference is cleared here and the
+     * service is told to stop, so turning it off from the app and from the notification's
+     * own button both end in the same place.
+     */
+    @PluginMethod
+    fun setWakeWord(call: PluginCall) {
+        val enabled = call.data.optBoolean("enabled", false)
+        VoicePrefs.setWakeWordEnabled(context, enabled)
+        val intent = Intent(context, WakeWordService::class.java).apply {
+            action = if (enabled) WakeWordService.ACTION_START else WakeWordService.ACTION_STOP
+        }
+        try {
+            if (enabled) context.startForegroundService(intent) else context.startService(intent)
+        } catch (e: Exception) {
+            // Never leave the preference claiming it is on when the service refused to start.
+            VoicePrefs.setWakeWordEnabled(context, false)
+            fail(call, "I could not start listening for the wake phrase. ${e.message ?: ""}".trim())
+            return
+        }
+        call.resolve(JSObject().put("wakeWordEnabled", enabled))
     }
 
     /**

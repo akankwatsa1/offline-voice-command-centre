@@ -184,11 +184,12 @@ object VoiceTrigger {
     }
 }
 
-/** The two switches the user controls, kept where the service and the plugin both see them. */
+/** The switches the user controls, kept where the services and the plugin all see them. */
 object VoicePrefs {
     private const val FILE = "voicecmd_prefs"
     private const val KEY_VOLUME = "volume_key_enabled"
     private const val KEY_BUBBLE = "bubble_enabled"
+    private const val KEY_WAKE = "wake_word_enabled"
 
     private fun prefs(ctx: Context) = ctx.getSharedPreferences(FILE, Context.MODE_PRIVATE)
 
@@ -202,5 +203,11 @@ object VoicePrefs {
 
     fun setBubbleEnabled(ctx: Context, enabled: Boolean) {
         prefs(ctx).edit().putBoolean(KEY_BUBBLE, enabled).apply()
+    }
+
+    fun wakeWordEnabled(ctx: Context): Boolean = prefs(ctx).getBoolean(KEY_WAKE, false)
+
+    fun setWakeWordEnabled(ctx: Context, enabled: Boolean) {
+        prefs(ctx).edit().putBoolean(KEY_WAKE, enabled).apply()
     }
 }
