@@ -59,6 +59,24 @@ class VoiceCommandPlugin : Plugin() {
         private val SWITCH_TO = Regex("""\b(switch to|switch over to|change to|use the|instead|onto)\b""")
     }
 
+    /** A spoken name that matches several people, which only the user can resolve. */
+    private fun ambiguous(calls: List<ToolCall>): Pair<ToolCall, List<Contacts.ContactMatch>>? {
+        for (call in calls) {
+            if (call.name != "dial_contact" && call.name != "send_sms") continue
+            val recipient = call.arguments.optString("recipient").trim()
+            if (recipient.isEmpty() || Contacts.looksLikeNumber(recipient)) continue
+            val matches = findAllOrEmpty(recipient)
+            if (matches.size > 1) return call to matches
+        }
+        return null
+    }
+
+    private fun findAllOrEmpty(recipient: String): List<Contacts.ContactMatch> = try {
+        Contacts.findAll(context, recipient)
+    } catch (_: Exception) {
+        emptyList()
+    }
+
     /**
      * Repairs two failures the model makes consistently, both visible on the frozen suite.
      *
@@ -227,7 +245,13 @@ class VoiceCommandPlugin : Plugin() {
         }
 
         val confident = attempts.isNotEmpty() && (reply.confidence ?: 0.0) >= threshold
+
+        // A name matching several people is not something to answer on the user's behalf.
+        // "Call mama" with three Mamas in the address book gets asked about, not guessed at.
+        val choice = if (confident && guard == null) ambiguous(attempts) else null
+
         val decision = when {
+            choice != null -> "choose"
             confident && guard == null -> "act"
             attempts.isNotEmpty() || reply.held.isNotEmpty() -> "confirm"
             else -> "refuse"
@@ -241,6 +265,23 @@ class VoiceCommandPlugin : Plugin() {
                 val spoken = outcomes.joinToString(" ") { it.spoken }
                 result.put("spoken", spoken)
                 if (autoSpeak && spoken.isNotBlank()) ui { speaker.say(spoken) }
+            }
+            "choose" -> {
+                val (call, matches) = choice!!
+                val options = JSArray()
+                matches.forEach { options.put(JSObject().put("name", it.name).put("number", it.number)) }
+                result.put("choices", options)
+                // The call the user already asked for, minus the name that needs resolving.
+                result.put(
+                    "pendingCall",
+                    JSObject().put("name", call.name).put("arguments", call.arguments.toString()),
+                )
+                val wanted = call.arguments.optString("recipient")
+                val spoken = "I found ${matches.size} contacts called $wanted. " +
+                    matches.mapIndexed { index, m -> "${index + 1}, ${m.name}." }.joinToString(" ") +
+                    " Which one?"
+                result.put("spoken", spoken)
+                if (autoSpeak) ui { speaker.say(spoken) }
             }
             "confirm" -> {
                 val pending = if (attempts.isNotEmpty()) attempts else reply.held

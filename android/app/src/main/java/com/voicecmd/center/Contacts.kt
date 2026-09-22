@@ -63,18 +63,39 @@ object Contacts {
         }
     }
 
+    /** A person who matched a spoken name, offered to the user to choose between. */
+    data class ContactMatch(val name: String, val number: String)
+
     /**
-     * Best match for a spoken name. Returns the number and the contact name it matched,
-     * or null when contacts are unreadable or nothing is close enough.
+     * Every contact matching a spoken name, best match first, one entry per number.
      *
-     * Matching prefers an exact name, then a prefix, then a substring, then any single
-     * name token — and among equals, the shortest display name, which is the most
-     * specific hit for a query like "mum".
+     * "Call mama" when three people in the address book are called Mama is not a question
+     * the app should answer on the user's behalf. Silently picking one is a guess the user
+     * cannot see in order to correct it, so the matches are offered and the choice is theirs.
      */
-    fun findNumber(ctx: Context, recipient: String): Pair<String, String>? {
-        if (!Capabilities.granted(ctx, Manifest.permission.READ_CONTACTS)) return null
+    fun findAll(ctx: Context, recipient: String): List<ContactMatch> =
+        scan(ctx, recipient)
+            .sortedWith(compareBy({ it.rank }, { it.length }))
+            .map { ContactMatch(it.name, it.number) }
+            .distinctBy { it.number }
+
+    /** Best match for a spoken name, or null when contacts are unreadable or nothing fits. */
+    fun findNumber(ctx: Context, recipient: String): Pair<String, String>? =
+        scan(ctx, recipient)
+            .minWithOrNull(compareBy({ it.rank }, { it.length }))
+            ?.let { it.number to it.name }
+
+    /**
+     * Scans the address book once, keeping the best-ranked entry per phone number.
+     *
+     * Matching prefers an exact name, then a prefix, then a substring, then any single name
+     * token, and among equals the shortest display name, which is the most specific hit for
+     * a query like "mum".
+     */
+    private fun scan(ctx: Context, recipient: String): List<Match> {
+        if (!Capabilities.granted(ctx, Manifest.permission.READ_CONTACTS)) return emptyList()
         val query = normalise(recipient)
-        if (query.isEmpty()) return null
+        if (query.isEmpty()) return emptyList()
 
         val best = HashMap<String, Match>()
 
@@ -121,12 +142,9 @@ object Contacts {
                 }
             }
         } catch (_: Exception) {
-            return null
+            return emptyList()
         }
 
-        return best.values
-            .filter { it.number.isNotEmpty() }
-            .minWithOrNull(compareBy({ it.rank }, { it.length }))
-            ?.let { it.number to it.name }
+        return best.values.filter { it.number.isNotEmpty() }
     }
 }

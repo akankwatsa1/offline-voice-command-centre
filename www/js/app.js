@@ -108,6 +108,68 @@
     confirmBar.hidden = true;
   }
 
+  /**
+   * Offers a list of people when a spoken name matched more than one contact.
+   *
+   * The app never picks for the user here: "call mama" with three Mamas in the address
+   * book is a question only they can answer, and a wrong guess is one they cannot see in
+   * order to correct. The names are spoken by the native side as well, so the list works
+   * without looking at the screen.
+   */
+  function showChoices(pendingCall, choices) {
+    const box = document.createElement("div");
+    box.className = "confirm-bar";
+    box.setAttribute("role", "group");
+    box.setAttribute("aria-label", "Choose a contact");
+
+    const label = document.createElement("p");
+    label.className = "confirm-text";
+    label.textContent = "Which one?";
+    box.appendChild(label);
+
+    const row = document.createElement("div");
+    row.className = "confirm-actions";
+    row.style.flexWrap = "wrap";
+
+    choices.forEach((contact, index) => {
+      const button = document.createElement("button");
+      button.className = "btn";
+      button.textContent = `${index + 1}. ${contact.name}`;
+      button.setAttribute("aria-label", `Use ${contact.name} on ${contact.number}`);
+      button.addEventListener("click", () => runChoice(pendingCall, contact));
+      row.appendChild(button);
+    });
+
+    box.appendChild(row);
+    resultEl.appendChild(box);
+    const first = row.querySelector("button");
+    if (first) first.focus();
+  }
+
+  async function runChoice(pendingCall, chosen) {
+    if (!VC || !pendingCall) return;
+    let args;
+    try {
+      args = JSON.parse(pendingCall.arguments || "{}");
+    } catch (_) {
+      args = {};
+    }
+    // Substitute the number the user chose for the name they said.
+    args.recipient = chosen.number;
+    setStatus(`Using ${chosen.name}`);
+    try {
+      const res = await VC.executeCalls({
+        callsJson: JSON.stringify([{ name: pendingCall.name, arguments: args }]),
+        speak: true,
+      });
+      renderOutcomes(res.outcomes || []);
+      setStatus("Done");
+    } catch (e) {
+      setStatus("Failed");
+      appendLog("choice failed: " + ((e && e.message) || e));
+    }
+  }
+
   // -------------------------------------------------------------- command
 
   async function runCommand(text) {
@@ -154,6 +216,10 @@
       });
       setStatus("Done");
       refreshReminders();
+    } else if (res.decision === "choose") {
+      renderDecision("confirm", reply, res.confidence, res.reasoning);
+      showChoices(res.pendingCall, res.choices || []);
+      setStatus("Choose a contact");
     } else if (res.decision === "confirm") {
       renderDecision("confirm", reply, res.confidence, res.reasoning);
       showConfirm(res.calls || [], res.spoken);
