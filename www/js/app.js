@@ -419,6 +419,7 @@
     setStatus("Ready");
     await refreshCapabilities();
     await refreshReminders();
+    await refreshTriggers();
   }
 
   // ----------------------------------------------------------------- wire
@@ -454,6 +455,45 @@
 
   el("open-exact").addEventListener("click", () => VC && VC.openExactAlarmSettings());
   el("open-settings").addEventListener("click", () => VC && VC.openAppSettings());
+
+  /**
+   * The two ways of starting a command from outside the app.
+   *
+   * Both are reported as off until Android's accessibility service is actually running,
+   * because that is the truth: without the service neither trigger can fire, however the
+   * preference is set.
+   */
+  async function refreshTriggers() {
+    if (!VC || !VC.getTriggerStatus) return;
+    try {
+      const t = await VC.getTriggerStatus();
+      const volumeOn = t.volumeKeyEnabled && t.accessibilityServiceOn;
+      const bubbleOn = t.bubbleEnabled && t.accessibilityServiceOn && t.canDrawOverlays;
+      el("state-volume").textContent = volumeOn ? "on" : "off";
+      el("toggle-volume").textContent = volumeOn ? "Turn off" : "Turn on";
+      el("state-bubble").textContent = bubbleOn ? "on" : t.bubbleEnabled && !t.canDrawOverlays ? "needs permission" : "off";
+      el("toggle-bubble").textContent = bubbleOn ? "Turn off" : "Turn on";
+    } catch (e) {
+      appendLog("trigger status failed: " + ((e && e.message) || e));
+    }
+  }
+
+  el("toggle-volume").addEventListener("click", async () => {
+    if (!VC) return;
+    const on = el("state-volume").textContent === "on";
+    await VC.setVolumeKey({ enabled: !on }).catch(() => {});
+    // The user may be sent to Settings, so re-read the state when they come back.
+    setTimeout(refreshTriggers, 1200);
+  });
+
+  el("toggle-bubble").addEventListener("click", async () => {
+    if (!VC) return;
+    const on = el("state-bubble").textContent === "on";
+    await VC.setBubble({ enabled: !on }).catch(() => {});
+    setTimeout(refreshTriggers, 1200);
+  });
+
+  el("open-accessibility").addEventListener("click", () => VC && VC.openAccessibilitySettings());
 
   el("log-toggle").addEventListener("click", (e) => {
     const open = e.currentTarget.getAttribute("aria-expanded") === "true";

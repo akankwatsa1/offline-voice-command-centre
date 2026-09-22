@@ -88,6 +88,23 @@
     <p class="hint" id="offline-note"></p>
   </section>
 
+  <!-- Starting without opening the app -------------------------------------- -->
+  <section class="card" aria-labelledby="h-triggers">
+    <h2 id="h-triggers">Start without opening the app</h2>
+    <p class="hint">
+      Both of these need a one-time switch in Android's Accessibility settings, which only
+      you can turn on. The app watches the volume key and the microphone button, and nothing
+      else on your screen.
+    </p>
+    <div class="perm-grid">
+      <div class="perm"><span>Hold volume down</span><button class="btn small" id="toggle-volume">Turn on</button><em id="state-volume">…</em></div>
+      <div class="perm"><span>Floating microphone</span><button class="btn small" id="toggle-bubble">Turn on</button><em id="state-bubble">…</em></div>
+    </div>
+    <div class="row">
+      <button class="btn small" id="open-accessibility">Accessibility settings</button>
+    </div>
+  </section>
+
   <!-- Reminders ------------------------------------------------------------- -->
   <section class="card" aria-labelledby="h-reminders">
     <h2 id="h-reminders">Reminders</h2>

@@ -4,4 +4,8 @@
     <string name="title_activity_main">Voice Command Centre</string>
     <string name="package_name">com.voicecmd.center</string>
     <string name="custom_url_scheme">com.voicecmd.center</string>
+    <!-- Shown in Settings > Accessibility when the user turns the service on. Both lines
+         are read aloud by TalkBack, so they say plainly what it does and what it does not. -->
+    <string name="accessibility_service_description">Lets you start a voice command by holding the volume down key, or by tapping a floating microphone. It watches that one key and nothing else on your screen.</string>
+    <string name="accessibility_service_summary">Start a voice command with the volume key or a floating microphone</string>
 </resources>

@@ -122,9 +122,15 @@ class VoiceCommandPlugin : Plugin() {
         executor = Executor(context)
         speaker = Speaker(context)
         Reminders.ensureChannel(context)
+        // The volume key and the floating microphone reach the app through here. The
+        // service fires this whenever the user triggers a command from outside the app.
+        VoiceTrigger.listener = { listenFromTrigger() }
     }
 
     override fun handleOnDestroy() {
+        // Drop the trigger first: a service still running must not call into a plugin
+        // that is being torn down.
+        VoiceTrigger.listener = null
         speech?.cancel()
         speech = null
         speaker.release()
@@ -354,18 +360,40 @@ class VoiceCommandPlugin : Plugin() {
         beginListening(call)
     }
 
+    /** Builds a speech listener wired to the events the web layer is listening for. */
+    private fun newListener(): SpeechListener = SpeechListener(
+        context = context,
+        onPartial = { text -> notifyListeners("speechPartial", JSObject().put("text", text)) },
+        onFinal = { text -> notifyListeners("speechFinal", JSObject().put("text", text)) },
+        onError = { message -> notifyListeners("speechError", JSObject().put("message", message)) },
+        onListeningChanged = { listening ->
+            notifyListeners("speechState", JSObject().put("listening", listening))
+        },
+    )
+
+    /**
+     * Starts listening with nobody to answer.
+     *
+     * That is the case for the volume key and the floating microphone: the trigger arrives
+     * from a service rather than from a call made by the web layer, so there is no
+     * PluginCall to resolve. The transcript still comes back as a speechFinal event, which
+     * is the same path a tap on the microphone uses.
+     */
+    fun listenFromTrigger() {
+        ui {
+            val listener = newListener()
+            speech?.cancel()
+            speech = listener
+            if (!listener.start()) {
+                speaker.say("I could not start listening.")
+            }
+        }
+    }
+
     /** SpeechRecognizer is main-thread only, so creation and start are posted to the UI. */
     private fun beginListening(call: PluginCall) {
         ui {
-            val listener = SpeechListener(
-                context = context,
-                onPartial = { text -> notifyListeners("speechPartial", JSObject().put("text", text)) },
-                onFinal = { text -> notifyListeners("speechFinal", JSObject().put("text", text)) },
-                onError = { message -> notifyListeners("speechError", JSObject().put("message", message)) },
-                onListeningChanged = { listening ->
-                    notifyListeners("speechState", JSObject().put("listening", listening))
-                },
-            )
+            val listener = newListener()
             speech?.cancel()
             speech = listener
             if (listener.start()) {
@@ -518,6 +546,62 @@ class VoiceCommandPlugin : Plugin() {
         } catch (e: Exception) {
             call.reject("Could not open settings: ${e.message}")
         }
+    }
+
+    // ------------------------------------------------- starting without the app
+
+    @PluginMethod
+    fun getTriggerStatus(call: PluginCall) {
+        call.resolve(
+            JSObject()
+                // The service being live means the user has switched it on by hand.
+                .put("accessibilityServiceOn", VoiceAccessService.instance != null)
+                .put("volumeKeyEnabled", VoicePrefs.volumeKeyEnabled(context))
+                .put("bubbleEnabled", VoicePrefs.bubbleEnabled(context))
+                .put("canDrawOverlays", Settings.canDrawOverlays(context)),
+        )
+    }
+
+    /**
+     * Turns the volume-key trigger on or off.
+     *
+     * Android will not let an app switch an accessibility service on for itself, so asking
+     * for it opens the settings screen where the user does it. That is a deliberate
+     * protection, not an obstacle to work around.
+     */
+    @PluginMethod
+    fun setVolumeKey(call: PluginCall) {
+        val enabled = call.data.optBoolean("enabled", false)
+        VoicePrefs.setVolumeKeyEnabled(context, enabled)
+        if (enabled && VoiceAccessService.instance == null) {
+            openAccessibilitySettings(call)
+            return
+        }
+        call.resolve(JSObject().put("volumeKeyEnabled", enabled))
+    }
+
+    @PluginMethod
+    fun setBubble(call: PluginCall) {
+        val enabled = call.data.optBoolean("enabled", false)
+        VoicePrefs.setBubbleEnabled(context, enabled)
+        if (enabled && !Settings.canDrawOverlays(context)) {
+            // Overlay permission has no runtime prompt; it lives on a special settings page.
+            startSafely(call, Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION).apply {
+                data = Uri.fromParts("package", context.packageName, null)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            })
+            return
+        }
+        // The service owns the bubble, so it is told to redraw rather than the app drawing it.
+        VoiceAccessService.instance?.refreshBubble()
+        call.resolve(JSObject().put("bubbleEnabled", enabled))
+    }
+
+    @PluginMethod
+    fun openAccessibilitySettings(call: PluginCall) {
+        startSafely(call, Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        })
     }
 
     // ----------------------------------------------------------------- helpers
